@@ -51,6 +51,19 @@ header{background:linear-gradient(135deg,var(--prim) 0%,var(--prim-osc) 100%);co
 .sos a{flex:none;text-decoration:none;background:var(--rojo);color:#fff;border-radius:999px;padding:9px 14px;font-weight:800;font-size:14px;white-space:nowrap}
 .sos a.sec{background:#fff;color:var(--rojo);border:1.5px solid var(--rojo)}
 
+.sos-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;border:0;background:var(--rojo);color:#fff;border-radius:14px;padding:11px 14px;font-weight:900;font-size:15px;min-height:46px}
+.sos-btn small{font-weight:700;opacity:.9;font-size:12.5px}
+.emerg{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--borde);border-radius:18px;padding:14px;margin-bottom:10px}
+.emerg .ico{width:52px;height:52px;font-size:26px;background:#fee2e2}
+.emerg h3{margin:0;font-size:16px;line-height:1.2}
+.emerg p{margin:3px 0 0;font-size:13.5px;color:var(--gris)}
+.emerg .cuerpo{flex:1;min-width:0}
+.llamar{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;background:var(--rojo);color:#fff;border-radius:14px;padding:9px 12px;font-weight:900;font-size:12.5px;min-width:72px}
+.llamar span{font-size:20px}
+.emerg .mini{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.emerg .mini button{border:0;background:var(--suave);border-radius:10px;padding:7px 10px;font-weight:800;font-size:12.5px}
+.titulo-sec{font-size:13px;font-weight:900;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;margin:18px 2px 8px}
+
 /* Categorías */
 .chips{display:flex;gap:8px;overflow-x:auto;padding:10px 12px;background:#fff;border-bottom:1px solid var(--borde);scrollbar-width:none;z-index:14}
 .chips::-webkit-scrollbar{display:none}
@@ -260,7 +273,7 @@ nav.tabs button.mas span{background:var(--coral);color:#fff;width:40px;height:30
     </div>
     <div class="buscar"><span>🔍</span><input id="q" type="search" placeholder="Buscar restaurante, hotel, droguería…" autocomplete="off"></div>
   </header>
-  <div class="sos" id="sos"><b>🚨 Emergencias</b></div>
+  <div class="sos"><button class="sos-btn" id="btnSOS">🚨 Emergencias <small>Policía · Bomberos · Hospital</small></button></div>
   <div class="chips" id="chips"></div>
   <main>
     <section class="lista" id="lista"></section>
@@ -280,6 +293,7 @@ nav.tabs button.mas span{background:var(--coral);color:#fff;width:40px;height:30
 </div>
 
 <div class="pantalla" id="perfil"></div>
+<div class="pantalla" id="emergencias"></div>
 <div class="pantalla" id="editor"></div>
 <div class="pantalla" id="negocio"></div>
 <div class="pantalla" id="admin"></div>
@@ -328,11 +342,17 @@ const ASP_CAT = {
   servicios:["atencion","tiempo","ubicacion"],
   emergencia:[]
 };
+const ORDEN_CHIPS = ["restaurante","hotel","turismo","cafe","comercio","transporte","salud","servicios","emergencia"];
 const CATS_PUBLICAS = ["restaurante","hotel","cafe"];   // lo único que la gente puede crear
 const NIVEL = ["","Muy malo","Malo","Regular","Bueno","Excelente"];
 const SOS = [
-  {t:"123 Emergencias", n:"123"}, {t:"Policía local", n:"3203064236", sec:true},
-  {t:"119 Bomberos", n:"119"}, {t:"132 Cruz Roja", n:"132", sec:true}, {t:"144 Defensa Civil", n:"144", sec:true}
+  {t:"Línea única de emergencias", n:"123", i:"🚨", d:"Policía, ambulancia y bomberos. Gratis desde cualquier teléfono."},
+  {t:"Bomberos", n:"119", i:"🚒", d:"Incendios, rescates y desastres."},
+  {t:"Cruz Roja", n:"132", i:"⛑️", d:"Ambulancias y primeros auxilios."},
+  {t:"Defensa Civil", n:"144", i:"🦺", d:"Emergencias por lluvias, derrumbes y desastres."},
+  {t:"Policía (desde celular)", n:"112", i:"🚓", d:"Línea de la Policía Nacional."},
+  {t:"Línea de la mujer", n:"155", i:"💜", d:"Orientación a mujeres víctimas de violencia."},
+  {t:"ICBF – niños y familia", n:"141", i:"🧒", d:"Protección de niños, niñas y adolescentes."}
 ];
 /* Lugares base (el admin los importa y luego les pone el punto en el mapa) */
 const BASE = [
@@ -592,7 +612,7 @@ let capa = 900;
 function abrirPantalla(id){ const p = $("#"+id); p.style.zIndex = ++capa; p.classList.add("ver"); p.scrollTop = 0; }
 function cerrarPantalla(id){
   $("#"+id).classList.remove("ver");
-  if (["perfil","admin","negocio"].includes(id) && location.hash) history.replaceState(null,"",location.pathname);
+  if (["perfil","admin","negocio","emergencias"].includes(id) && location.hash) history.replaceState(null,"",location.pathname);
 }
 document.addEventListener("click", e => { const b = e.target.closest("[data-volver]"); if (b) cerrarPantalla(b.dataset.volver); });
 
@@ -611,10 +631,10 @@ function distM(l){ if (!miUbic || !tieneUbic(l)) return null;
   const h=Math.sin(a/2)**2+Math.cos(r(miUbic.lat))*Math.cos(r(l.lat))*Math.sin(b/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
 const fmtDist = m => m==null ? "" : m<1000 ? Math.round(m/10)*10+" m" : (m/1000).toFixed(m<10000?1:0).replace(".",",")+" km";
 
-$("#sos").insertAdjacentHTML("beforeend", SOS.map(s => `<a class="${s.sec?'sec':''}" href="tel:${soloDig(s.n)}">📞 ${esc(s.t)}</a>`).join(""));
+$("#btnSOS").onclick = abrirEmergencias;
 function pintarChips(){
   $("#chips").innerHTML = `<button class="chip ${!filtroCat?'on':''}" data-cat="">Todo</button>` +
-    Object.entries(CATS).map(([k,v]) => `<button class="chip ${filtroCat===k?'on':''}" data-cat="${k}"><span class="dot" style="background:${v.c}"></span>${v.i} ${v.n}</button>`).join("");
+    ORDEN_CHIPS.map(k => [k, CATS[k]]).map(([k,v]) => `<button class="chip ${filtroCat===k?'on':''}" data-cat="${k}"><span class="dot" style="background:${v.c}"></span>${v.i} ${v.n}</button>`).join("");
 }
 $("#chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; filtroCat = b.dataset.cat || null; pintarChips(); pintar(true); });
 $("#q").addEventListener("input", e => { texto = norm(e.target.value); pintar(false); });
@@ -702,6 +722,32 @@ function cercaDeMi(enLista){
 }
 $("#btnCerca").onclick = () => cercaDeMi(false);
 $("#btnPueblo").onclick = () => mapa && mapa.setView(CONFIG.centro, CONFIG.zoom);
+
+/* =====================================================================
+   PANTALLA DE EMERGENCIAS
+   ===================================================================== */
+function abrirEmergencias(){
+  const locales = lugares.filter(l => l.categoria==="emergencia" || (l.oficial && l.categoria==="salud"))
+    .sort((a,b) => a.nombre.localeCompare(b.nombre,"es"));
+  const tarjeta = (i, t, d, tel, extra="") => `<div class="emerg"><div class="ico">${i}</div>
+      <div class="cuerpo"><h3>${esc(t)}</h3><p>${esc(d)}</p>${extra}</div>
+      ${tel?`<a class="llamar" href="tel:${soloDig(tel)}"><span>📞</span>${esc(tel)}</a>`:""}</div>`;
+  $("#emergencias").innerHTML = `<div class="barra-sup"><button class="atras" data-volver="emergencias">←</button><h2>🚨 Emergencias</h2></div>
+    <div class="contenido">
+      <div class="aviso" style="background:#fee2e2;border-color:#fecaca"><b>¿Es una emergencia?</b> Marca <b>123</b>. Es gratis y funciona sin saldo.</div>
+      ${locales.length ? `<div class="titulo-sec">En ${esc(CONFIG.pueblo)}</div>` + locales.map(l => tarjeta(emojiLugar(l), l.nombre,
+          [l.direccion, l.horario].filter(Boolean).join(" · "), l.telefono,
+          `<div class="mini">${tieneUbic(l)?`<button data-mapa="${esc(l.id)}">🗺️ Ver en el mapa</button>`:""}<button data-perfil="${esc(l.id)}">ℹ️ Más información</button></div>`)).join("") : ""}
+      <div class="titulo-sec">Líneas nacionales gratuitas</div>
+      ${SOS.map(s => tarjeta(s.i, s.t, s.d, s.n)).join("")}
+    </div>`;
+  abrirPantalla("emergencias");
+  $("#emergencias").onclick = e => {
+    const m = e.target.closest("[data-mapa]"), p = e.target.closest("[data-perfil]");
+    if (m){ const l = lugares.find(x => x.id===m.dataset.mapa); cerrarPantalla("emergencias"); mostrarTab("mapa"); mapa.setView([l.lat,l.lng], 18); mostrarVistaPin(l); }
+    if (p) abrirPerfil(p.dataset.perfil);
+  };
+}
 
 /* =====================================================================
    6) PERFIL DEL LUGAR
@@ -1150,6 +1196,7 @@ async function recargar(){
 }
 function ruta(){
   const h = decodeURIComponent(location.hash.slice(1));
+  if (h==="emergencias"){ abrirEmergencias(); return; }
   if (h==="admin"){ if (!usarFirebase) try { sessionStorage.setItem("demoAdmin","1"); } catch {} abrirPantalla("admin"); pintarAdmin(); return; }
   if (h) abrirPerfil(h);
 }
