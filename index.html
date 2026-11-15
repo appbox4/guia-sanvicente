@@ -8,6 +8,7 @@
 <meta property="og:title" content="Guía de San Vicente de Chucurí">
 <meta property="og:description" content="Restaurantes, hoteles, turismo y comercio del pueblo en un mapa, con reseñas de la gente.">
 <meta name="theme-color" content="#0f766e">
+<meta http-equiv="Cache-Control" content="no-cache">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
@@ -1213,6 +1214,21 @@ function ruta(){
   if (h) abrirPerfil(h);
 }
 window.addEventListener("hashchange", ruta);
+
+/* Si hay una versión nueva publicada, la página se actualiza sola */
+const VERSION = "2026-11-15.3";
+async function revisarVersion(){
+  try {
+    const t = await fetch(location.pathname + "?v=" + Date.now(), {cache:"no-store"}).then(r => r.text());
+    const v = (t.match(/const VERSION = "([^"]+)"/) || [])[1];
+    if (v && v !== VERSION){
+      await fetch(location.pathname, {cache:"reload"}); await fetch("config.js?v=4", {cache:"reload"}).catch(()=>{});
+      if (sessionStorage.getItem("recargado") !== v){ sessionStorage.setItem("recargado", v); location.reload(); }
+    }
+  } catch {}
+}
+revisarVersion();
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") revisarVersion(); });
 
 (async function(){
   document.title = "Guía de " + CONFIG.pueblo;
