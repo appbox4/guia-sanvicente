@@ -636,10 +636,8 @@ function iniciarMapa(){
   mapa.addLayer(grupo);
   mapa.on("click", () => $("#vistaPin").classList.remove("ver"));
 }
-function iconoPin(l){
+function iconoPin(l){   // todos los lugares: círculo del color de su categoría
   const col = CATS[l.categoria]?.c || "#555";
-  if (l.oficial || l.categoria==="emergencia")   // lugares oficiales: ícono o logo grande
-    return L.divIcon({className:"", html:`<div class="pin-of" style="border-color:${col}">${icoHtml(l)}</div>`, iconSize:[42,42], iconAnchor:[21,21]});
   return L.divIcon({className:"", html:`<div class="pin" style="background:${col}"></div>`, iconSize:[24,24], iconAnchor:[12,12]});
 }
 
@@ -662,7 +660,7 @@ function pintar(ajustar){
   fl.filter(tieneUbic).forEach(l => {
     const m = L.marker([l.lat,l.lng], {icon: iconoPin(l), title: l.nombre, zIndexOffset: l.categoria==="emergencia" ? 1000 : 0});
     m.on("click", ev => { L.DomEvent.stopPropagation(ev); mostrarVistaPin(l); });
-    marcadores[l.id] = m; (l.categoria==="emergencia" ? capaOficial : grupo).addLayer(m);
+    marcadores[l.id] = m; grupo.addLayer(m);
   });
   if (ajustar && filtroCat && grupo.getLayers().length) mapa.fitBounds(grupo.getBounds().pad(0.2), {maxZoom:16});
 }
