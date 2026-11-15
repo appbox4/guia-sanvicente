@@ -13,16 +13,16 @@ window.GUIA_CONFIG = {
 
   // Tu correo de Google (el administrador que aprueba lugares).
   // Debe ser el mismo que pongas en las reglas de Firestore.
-  admins: ["TU_CORREO@gmail.com"],
+  admins: ["appbox4@gmail.com"],
 
   // Pega aquí los datos de tu app web de Firebase (ver GUIA.md, paso 3).
   // Mientras estén vacíos, la guía funciona en "modo de prueba".
   firebase: {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
+    apiKey: "AIzaSyBJ1c5JrPAqw9Jc8Tmt0nR3M0bBg-3YHAo",
+    authDomain: "sanvicente-8afc6.firebaseapp.com",
+    projectId: "sanvicente-8afc6",
+    storageBucket: "sanvicente-8afc6.firebasestorage.app",
+    messagingSenderId: "226429269786",
+    appId: "1:226429269786:web:0b3e38fc7eb5a4910ddea3"
   }
 };

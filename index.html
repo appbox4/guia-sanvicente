@@ -430,6 +430,11 @@ const Datos = {
     if (fid) await setDoc(doc(fb.db,"lugares",id,"fotos",fid), datos);
     else await addDoc(collection(fb.db,"lugares",id,"fotos"), datos);
   },
+  async fotoGente(id, img, uid, autor){
+    if (!usarFirebase){ const f = lsL(K.fot)||{}; (f[id] = f[id]||[]).push({id:nuevoId(), img, tipo:"gente", uid, autor, fecha:Date.now()}); lsG(K.fot,f); return; }
+    const {addDoc, collection, serverTimestamp} = fb.fs;
+    await addDoc(collection(fb.db,"lugares",id,"fotos"), {img, tipo:"gente", uid, autor, fecha: serverTimestamp()});
+  },
   async borrarFoto(id, fid){
     if (!usarFirebase){ const f = lsL(K.fot)||{}; f[id] = (f[id]||[]).filter(x => x.id!==fid); lsG(K.fot,f); return; }
     const {doc, deleteDoc} = fb.fs;
@@ -715,7 +720,7 @@ async function abrirPerfil(id, pest="info"){
       ${esDueno||esAdmin()?`<button class="btn-editar-perfil" id="pfEditar">✏️ ${esDueno?"Editar mi perfil":"Editar (administrador)"}</button>`:""}
     </div>
     <div class="pestanas-perfil">
-      <button data-p="info">Información</button><button data-p="menu">${l.categoria==="restaurante"?"Menú":"Productos"}</button>
+      <button data-p="info">Información</button>${["emergencia","turismo","servicios"].includes(l.categoria) && !(l.menu||[]).length ? "" : `<button data-p="menu">${l.categoria==="restaurante"?"Menú":"Productos"}</button>`}
       <button data-p="fotos">Fotos</button>${califica?`<button data-p="resenas">Reseñas${l.resumen?.n?` (${l.resumen.n})`:""}</button>`:""}
     </div>
     <div id="pfCuerpo"></div>`;
@@ -766,7 +771,21 @@ function pintarPestanaPerfil(){
     </div>`;
   } else if (pestPerfil==="fotos"){
     const fg = fotos ? fotos.filter(f => f.tipo==="galeria") : null;
-    z.innerHTML = `<div class="seccion">${fg==null ? cargando : fg.length ? `<div class="galeria">${fg.map(f=>`<img src="${f.img}" alt="" data-ver>`).join("")}</div>` : `<div class="vacio">Aún no hay fotos.</div>`}</div>`;
+    const fp = fotos ? fotos.filter(f => f.tipo==="gente").sort((a,b)=>((b.fecha?.seconds||b.fecha/1000||0)-(a.fecha?.seconds||a.fecha/1000||0))) : null;
+    const u = yo(), puedeBorrar = f => esAdmin() || (u && (f.uid===u.uid || l.ownerUid===u.uid));
+    z.innerHTML = `
+      ${fg && fg.length ? `<div class="seccion"><h3>${l.oficial||!l.ownerUid?"Fotos oficiales":"Fotos del lugar"}</h3><div class="galeria">${fg.map(f=>`<img src="${f.img}" alt="" data-ver>`).join("")}</div></div>`:""}
+      <div class="seccion"><h3>📷 Fotos de la gente</h3>
+        <p class="ayuda" style="margin-top:-4px">¿Fuiste? Comparte tus fotos de este lugar.</p>
+        <button class="btn" id="pfSubirFoto">📷 Subir una foto</button>
+        <div style="margin-top:12px">${fp==null ? cargando : fp.length ? `<div class="galeria">${fp.map(f=>`<div style="position:relative"><img src="${f.img}" alt="" data-ver title="${esc(f.autor||"")}">${puedeBorrar(f)?`<button class="b-del" data-fid="${esc(f.id)}" style="position:absolute;top:4px;right:4px;margin:0;padding:3px 7px">✕</button>`:""}<div class="ayuda" style="margin:2px 0 0;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.autor||"")}</div></div>`).join("")}</div>` : `<div class="vacio" style="padding:14px">Aún nadie ha subido fotos. ¡Sé el primero!</div>`}</div>
+      </div>`;
+    $("#pfSubirFoto").onclick = () => subirFotoGente(l);
+    z.querySelectorAll(".b-del[data-fid]").forEach(b => b.onclick = async () => {
+      if (b.dataset.seguro!=="1"){ b.dataset.seguro="1"; b.textContent="¿Borrar?"; return; }
+      try { await Datos.borrarFoto(l.id, b.dataset.fid); l._fotos = l._fotos.filter(f => f.id!==b.dataset.fid); toast("Foto borrada"); pintarPestanaPerfil(); }
+      catch(e){ toast("Error: "+(e.code||e.message)); }
+    });
   } else if (pestPerfil==="resenas"){
     z.innerHTML = `<div class="seccion"><h3>⭐ Calificaciones de la gente</h3>
       ${l.resumen?.n ? resumenHtml(l) : `<div class="aviso">Aún nadie ha calificado este lugar. ¡Sé el primero!</div>`}
@@ -802,6 +821,19 @@ async function cargarResenas(l){
     try { await Datos.borrarResena(l.id, b.dataset.uid); toast("Reseña borrada"); await recargar(); abrirPerfil(l.id, "resenas"); }
     catch(err){ console.error(err); toast("Error: "+(err.code||err.message)); }
   };
+}
+
+/* Fotos de la gente */
+async function subirFotoGente(l){
+  if (!(await pedirSesion("Entra con tu cuenta de Google para subir fotos. Así sabemos quién comparte cada foto."))) return;
+  const file = await elegirFoto(); if (!file) return;
+  toast("Subiendo foto…", 6000);
+  try {
+    const img = await comprimir(file, 1100);
+    const u = yo(), autor = usarFirebase ? ((u.displayName||"").split(" ")[0] || "Visitante") : "Tú (prueba)";
+    await Datos.fotoGente(l.id, img, u.uid, autor);
+    l._fotos = await Datos.fotos(l.id); toast("¡Gracias por tu foto! 📷"); pintarPestanaPerfil();
+  } catch(e){ console.error(e); toast("No se pudo subir: "+(e.code||e.message)); }
 }
 
 /* Calificar */
@@ -887,10 +919,11 @@ async function abrirEditor(lugar){
   ED = {lugar, ubic: tieneUbic(v) ? {lat:v.lat, lng:v.lng} : null, menu: [...(v.menu||[])], miniatura: v.miniatura || null,
         portada: null, portadaCambio: false, fotos: [], borrar: []};
   if (!nuevo){ try { const fs = await Datos.fotos(lugar.id); ED.portada = fs.find(f=>f.tipo==="portada")?.img || null; ED.fotos = fs.filter(f=>f.tipo!=="portada").map(f=>({...f, guardada:true})); } catch {} }
-  const catOpts = Object.entries(CATS).filter(([k]) => esAdmin() || k!=="emergencia").map(([k,c]) => `<option value="${k}" ${v.categoria===k?"selected":""}>${c.i} ${c.n}</option>`).join("");
+  const catOpts = Object.entries(CATS).filter(([k]) => esAdmin() || (k!=="emergencia" && k!=="turismo")).map(([k,c]) => `<option value="${k}" ${v.categoria===k?"selected":""}>${c.i} ${c.n}</option>`).join("");
   $("#editor").innerHTML = `<div class="barra-sup"><button class="atras" data-volver="editor">←</button><h2>${nuevo?"Crear perfil":"Editar perfil"}</h2></div>
   <form class="contenido form" id="fEd" novalidate>
-    ${nuevo?`<div class="aviso">Es gratis. Antes de publicarlo, el administrador revisa que el lugar sea real (puede llamar al teléfono que dejes).</div>`:""}
+    ${nuevo && !esAdmin()?`<div class="aviso">Es gratis. Antes de publicarlo, el administrador revisa que el lugar sea real (puede llamar al teléfono que dejes).</div>`:""}
+    ${nuevo && esAdmin()?`<div class="aviso ok">Estás creando un <b>lugar oficial</b> (emergencias, turismo, entidades). Se publica de inmediato y solo tú lo puedes editar.</div>`:""}
     <div class="bloque"><h3>📷 Fotos principales</h3>
       <label>Foto de portada</label><div class="subir-portada" id="edPortada">＋ Toca para subir la portada</div>
       <label>Logo o foto de perfil</label><div class="subir-logo" id="edLogo">＋ Logo</div>
@@ -899,7 +932,7 @@ async function abrirEditor(lugar){
       <label>Nombre del lugar *</label><input name="nombre" maxlength="90" value="${esc(v.nombre)}">
       <label>Categoría *</label><select name="categoria">${catOpts}</select>
       <label>Descripción</label><textarea name="descripcion" maxlength="800" placeholder="Cuéntale a la gente qué ofreces, tu especialidad, tu historia…">${esc(v.descripcion)}</textarea>
-      <div class="fila2"><div><label>Teléfono *</label><input name="telefono" inputmode="tel" maxlength="20" value="${esc(v.telefono)}"></div>
+      <div class="fila2"><div><label>Teléfono${esAdmin()?"":" *"}</label><input name="telefono" inputmode="tel" maxlength="20" value="${esc(v.telefono)}"></div>
       <div><label>WhatsApp</label><input name="whatsapp" inputmode="tel" maxlength="20" value="${esc(v.whatsapp)}"></div></div>
       <label>Dirección</label><input name="direccion" maxlength="150" placeholder="Ej: Calle 10 # 9-20, Parque principal" value="${esc(v.direccion)}">
       <label>Horario</label><input name="horario" maxlength="120" placeholder="Ej: Lunes a sábado 7am – 9pm" value="${esc(v.horario)}">
@@ -986,7 +1019,7 @@ async function guardarEditor(e){
   const d = {};
   ["nombre","categoria","descripcion","telefono","whatsapp","direccion","horario","instagram","facebook","tiktok","web"].forEach(k => d[k] = String(f.get(k)||"").trim());
   if (d.nombre.length < 2) return toast("Escribe el nombre del lugar");
-  if (soloDig(d.telefono).length < 3) return toast("Escribe un teléfono válido");
+  if (!esAdmin() && soloDig(d.telefono).length < 3) return toast("Escribe un teléfono válido");
   if (!ED.ubic && !ED.lugar) return toast("Marca la ubicación en el mapa");
   if (ED.ubic){ d.lat = ED.ubic.lat; d.lng = ED.ubic.lng; }
   d.menu = ED.menu;
@@ -995,12 +1028,14 @@ async function guardarEditor(e){
   try {
     let id;
     if (ED.lugar){ id = ED.lugar.id; await Datos.actualizar(id, d); }
+    else if (esAdmin()) id = await Datos.crear({...d, estado:"aprobado", oficial:true});
     else id = await Datos.crear({...d, estado:"pendiente", oficial:false, ownerUid: yo().uid});
     if (ED.portadaCambio && ED.portada) await Datos.ponerFoto(id, "portada", ED.portada, "portada");
     for (const fid of ED.borrar) await Datos.borrarFoto(id, fid);
     for (const fo of ED.fotos.filter(x => !x.guardada)) await Datos.ponerFoto(id, null, fo.img, fo.tipo);
     cerrarPantalla("editor"); await recargar();
-    if (!ED.lugar){
+    if (!ED.lugar && esAdmin()) toast("Lugar oficial publicado ✓");
+    else if (!ED.lugar){
       abrirHoja(`<div class="hoja-cab"><h2>¡Perfil enviado! 🎉</h2><button class="cerrar" data-cerrar>✕</button></div>
         <div class="aviso ok">Tu lugar <b>${esc(d.nombre)}</b> quedó en revisión. Aparecerá en la guía apenas el administrador confirme que es real. Mientras tanto puedes seguir completándolo desde <b>Mi negocio</b>.</div>
         <button class="btn" data-cerrar>Listo</button>`);
@@ -1028,10 +1063,12 @@ async function pintarAdmin(){
   A.innerHTML = cab + `<div class="contenido">
     <div class="pest-admin">${[["pendiente","⏳ Por aprobar"],["aprobado","✅ Publicados"],["rechazado","🚫 Rechazados"]].map(([k,t])=>`<button data-p="${k}" class="${pestAdmin===k?"on":""}">${t}</button>`).join("")}</div>
     <div id="adLista"><div class="vacio">Cargando…</div></div>
-    <div class="bloque"><h3>Herramientas</h3><p class="ayuda">Carga los lugares base (policía, hospital, alcaldía, sitios turísticos). Luego edita cada uno para confirmar datos y ponerle su punto en el mapa.</p>
+    <div class="bloque"><h3>Herramientas</h3><p class="ayuda">Crea bomberos, policía, hospital y sitios turísticos con su punto en el mapa. O importa la lista base y luego edita cada uno para marcarlo en el mapa.</p>
+      <button class="btn" id="adNuevo">＋ Crear lugar oficial</button>
       <button class="btn sec" id="adImportar">Importar lugares base</button></div></div>`;
   A.querySelectorAll(".pest-admin button").forEach(b => b.onclick = () => { pestAdmin = b.dataset.p; pintarAdmin(); });
   $("#adImportar").onclick = importarBase;
+  $("#adNuevo").onclick = () => abrirEditor(null);
   let items = [];
   try { items = await Datos.porEstado(pestAdmin); } catch(e){ $("#adLista").innerHTML = `<div class="aviso">Error leyendo datos (${esc(e.code||e.message)}). Revisa las reglas y el correo de administrador.</div>`; return; }
   items.sort((a,b) => (b.creado?.seconds||b.creado||0) - (a.creado?.seconds||a.creado||0));
