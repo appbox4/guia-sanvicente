@@ -23,7 +23,7 @@ service cloud.firestore {
     // ---------- Perfil del lugar (lo llena el dueño) ----------
     function perfilValido(d) {
       return d.nombre is string && d.nombre.size() >= 2 && d.nombre.size() <= 90
-        && d.categoria in ['salud','restaurante','hotel','comercio','servicios','transporte']
+        && d.categoria in ['restaurante','hotel','cafe']
         && d.telefono is string && d.telefono.size() >= 3 && d.telefono.size() <= 20
         && texto(d,'descripcion',800) && texto(d,'whatsapp',20) && texto(d,'direccion',150)
         && texto(d,'horario',120) && texto(d,'instagram',150) && texto(d,'facebook',150)

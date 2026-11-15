@@ -97,6 +97,8 @@ nav.tabs button.mas span{background:var(--coral);color:#fff;width:40px;height:30
 .flot{width:50px;height:50px;border-radius:50%;border:0;background:#fff;box-shadow:var(--sombra);font-size:22px;display:grid;place-items:center}
 .flot:active{transform:scale(.93)}
 .pin{width:24px;height:24px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 7px rgba(0,0,0,.35)}
+.pin-of{width:42px;height:42px;border-radius:50%;border:3px solid #fff;display:grid;place-items:center;font-size:22px;box-shadow:0 3px 10px rgba(0,0,0,.35);overflow:hidden;background:#fff}
+.pin-of img{width:100%;height:100%;object-fit:cover}
 .yo{width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 7px rgba(37,99,235,.25)}
 .leaflet-control-zoom{display:none}
 .marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:rgba(15,118,110,.25)!important}
@@ -286,7 +288,7 @@ nav.tabs button.mas span{background:var(--coral);color:#fff;width:40px;height:30
 <div class="toast" id="toast"></div>
 <input type="file" id="archivo" accept="image/*" hidden>
 
-<script src="config.js"></script>
+<script src="config.js?v=3"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script type="module">
@@ -303,6 +305,7 @@ const CATS = {
   emergencia:  {n:"Emergencias",  i:"🚨", c:"#dc2626"},
   salud:       {n:"Salud",        i:"🏥", c:"#db2777"},
   restaurante: {n:"Restaurantes", i:"🍽️", c:"#ea580c"},
+  cafe:        {n:"Cafés",        i:"☕", c:"#92400e"},
   hotel:       {n:"Hoteles",      i:"🛏️", c:"#7c3aed"},
   turismo:     {n:"Turismo",      i:"🌄", c:"#16a34a"},
   comercio:    {n:"Comercio",     i:"🛍️", c:"#2563eb"},
@@ -316,6 +319,7 @@ const ASPECTOS = {
 };
 const ASP_CAT = {
   restaurante:["sabor","atencion","tiempo","precio","ambiente","ubicacion"],
+  cafe:["sabor","atencion","tiempo","precio","ambiente","ubicacion"],
   hotel:["atencion","limpieza","comodidad","precio","ambiente","ubicacion"],
   turismo:["atencion","limpieza","precio","ubicacion"],
   comercio:["atencion","tiempo","precio","ubicacion"],
@@ -324,6 +328,7 @@ const ASP_CAT = {
   servicios:["atencion","tiempo","ubicacion"],
   emergencia:[]
 };
+const CATS_PUBLICAS = ["restaurante","hotel","cafe"];   // lo único que la gente puede crear
 const NIVEL = ["","Muy malo","Malo","Regular","Bueno","Excelente"];
 const SOS = [
   {t:"123 Emergencias", n:"123"}, {t:"Policía local", n:"3203064236", sec:true},
@@ -534,7 +539,14 @@ function linkRed(tipo, v){
 }
 function promAspecto(l,k){ const r = l.resumen; return r && r.n>0 && r.s?.[k] ? r.s[k]/r.n : null; }
 function promGeneral(l){ const v = (ASP_CAT[l.categoria]||[]).map(k=>promAspecto(l,k)).filter(x=>x!=null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
-function icoHtml(l){ const c = CATS[l.categoria]||{}; return imgOk(l.miniatura) ? `<img src="${l.miniatura}" alt="">` : (c.i||"📍"); }
+function emojiLugar(l){
+  if (l.icono) return l.icono;
+  const n = norm(l.nombre);
+  if (/polic/.test(n)) return "🚓"; if (/bomber/.test(n)) return "🚒"; if (/hospital|clinica|urgencia/.test(n)) return "🏥";
+  if (/cruz roja/.test(n)) return "⛑️"; if (/defensa civil/.test(n)) return "🦺";
+  return CATS[l.categoria]?.i || "📍";
+}
+function icoHtml(l){ return imgOk(l.miniatura) ? `<img src="${l.miniatura}" alt="">` : emojiLugar(l); }
 function calHtml(l){ const g = promGeneral(l); return g==null ? "" : `<span class="cal"><span class="estrellas">★</span>${fmt1(g)} <small>(${l.resumen.n})</small></span>`; }
 
 /* Reduce una foto del celular para que pese poco */
@@ -592,7 +604,7 @@ function verFoto(src){ $("#visor img").src = src; $("#visor").classList.add("ver
    5) PANTALLA PRINCIPAL: mapa, lista, filtros
    ===================================================================== */
 let lugares = [], filtroCat = null, texto = "", ordenar = "auto", miUbic = null, marcaYo = null;
-let mapa, grupo, marcadores = {};
+let mapa, grupo, capaOficial = null, marcadores = {};
 
 function distM(l){ if (!miUbic || !tieneUbic(l)) return null;
   const R=6371000, r=x=>x*Math.PI/180, a=r(l.lat-miUbic.lat), b=r(l.lng-miUbic.lng);
@@ -624,7 +636,12 @@ function iniciarMapa(){
   mapa.addLayer(grupo);
   mapa.on("click", () => $("#vistaPin").classList.remove("ver"));
 }
-const iconoPin = cat => L.divIcon({className:"", html:`<div class="pin" style="background:${CATS[cat]?.c||"#555"}"></div>`, iconSize:[24,24], iconAnchor:[12,12]});
+function iconoPin(l){
+  const col = CATS[l.categoria]?.c || "#555";
+  if (l.oficial || l.categoria==="emergencia")   // lugares oficiales: ícono o logo grande
+    return L.divIcon({className:"", html:`<div class="pin-of" style="border-color:${col}">${icoHtml(l)}</div>`, iconSize:[42,42], iconAnchor:[21,21]});
+  return L.divIcon({className:"", html:`<div class="pin" style="background:${col}"></div>`, iconSize:[24,24], iconAnchor:[12,12]});
+}
 
 function pintar(ajustar){
   const fl = filtrados();
@@ -640,10 +657,12 @@ function pintar(ajustar){
     `<div class="pie">¿Tienes un negocio? Créale su perfil gratis en <b>🏪 Mi negocio</b>.</div>`;
   if (!grupo) return;
   grupo.clearLayers(); marcadores = {};
+  if (!capaOficial){ capaOficial = L.layerGroup(); mapa.addLayer(capaOficial); }
+  capaOficial.clearLayers();
   fl.filter(tieneUbic).forEach(l => {
-    const m = L.marker([l.lat,l.lng], {icon: iconoPin(l.categoria), title: l.nombre});
+    const m = L.marker([l.lat,l.lng], {icon: iconoPin(l), title: l.nombre, zIndexOffset: l.categoria==="emergencia" ? 1000 : 0});
     m.on("click", ev => { L.DomEvent.stopPropagation(ev); mostrarVistaPin(l); });
-    marcadores[l.id] = m; grupo.addLayer(m);
+    marcadores[l.id] = m; (l.categoria==="emergencia" ? capaOficial : grupo).addLayer(m);
   });
   if (ajustar && filtroCat && grupo.getLayers().length) mapa.fitBounds(grupo.getBounds().pad(0.2), {maxZoom:16});
 }
@@ -720,7 +739,7 @@ async function abrirPerfil(id, pest="info"){
       ${esDueno||esAdmin()?`<button class="btn-editar-perfil" id="pfEditar">✏️ ${esDueno?"Editar mi perfil":"Editar (administrador)"}</button>`:""}
     </div>
     <div class="pestanas-perfil">
-      <button data-p="info">Información</button>${["emergencia","turismo","servicios"].includes(l.categoria) && !(l.menu||[]).length ? "" : `<button data-p="menu">${l.categoria==="restaurante"?"Menú":"Productos"}</button>`}
+      <button data-p="info">Información</button>${["emergencia","turismo","servicios"].includes(l.categoria) && !(l.menu||[]).length ? "" : `<button data-p="menu">${["restaurante","cafe"].includes(l.categoria)?"Menú":"Productos"}</button>`}
       <button data-p="fotos">Fotos</button>${califica?`<button data-p="resenas">Reseñas${l.resumen?.n?` (${l.resumen.n})`:""}</button>`:""}
     </div>
     <div id="pfCuerpo"></div>`;
@@ -883,7 +902,7 @@ async function pintarNegocio(){
   const cab = `<div class="barra-sup"><button class="atras" data-volver="negocio">←</button><h2>🏪 Mi negocio</h2></div>`;
   if (!u){
     P.innerHTML = cab + `<div class="contenido">
-      <div class="bloque"><h3>Crea gratis el perfil de tu negocio</h3>
+      <div class="bloque"><h3>Crea gratis el perfil de tu restaurante, hotel o café</h3>
         <p class="ayuda">Pon tu portada, logo, fotos, menú, horario y redes sociales. La gente te encuentra en el mapa, te escribe por WhatsApp y te califica.</p>
         <div class="aviso">Entra con tu cuenta de Google: así solo tú puedes editar tu perfil.</div>
         <button class="btn" id="ngEntrar">Entrar con Google</button></div></div>`;
@@ -919,7 +938,7 @@ async function abrirEditor(lugar){
   ED = {lugar, ubic: tieneUbic(v) ? {lat:v.lat, lng:v.lng} : null, menu: [...(v.menu||[])], miniatura: v.miniatura || null,
         portada: null, portadaCambio: false, fotos: [], borrar: []};
   if (!nuevo){ try { const fs = await Datos.fotos(lugar.id); ED.portada = fs.find(f=>f.tipo==="portada")?.img || null; ED.fotos = fs.filter(f=>f.tipo!=="portada").map(f=>({...f, guardada:true})); } catch {} }
-  const catOpts = Object.entries(CATS).filter(([k]) => esAdmin() || (k!=="emergencia" && k!=="turismo")).map(([k,c]) => `<option value="${k}" ${v.categoria===k?"selected":""}>${c.i} ${c.n}</option>`).join("");
+  const catOpts = Object.entries(CATS).filter(([k]) => esAdmin() || CATS_PUBLICAS.includes(k)).map(([k,c]) => `<option value="${k}" ${v.categoria===k?"selected":""}>${c.i} ${c.n}</option>`).join("");
   $("#editor").innerHTML = `<div class="barra-sup"><button class="atras" data-volver="editor">←</button><h2>${nuevo?"Crear perfil":"Editar perfil"}</h2></div>
   <form class="contenido form" id="fEd" novalidate>
     ${nuevo && !esAdmin()?`<div class="aviso">Es gratis. Antes de publicarlo, el administrador revisa que el lugar sea real (puede llamar al teléfono que dejes).</div>`:""}
@@ -931,6 +950,7 @@ async function abrirEditor(lugar){
     <div class="bloque"><h3>📝 Información</h3>
       <label>Nombre del lugar *</label><input name="nombre" maxlength="90" value="${esc(v.nombre)}">
       <label>Categoría *</label><select name="categoria">${catOpts}</select>
+      ${esAdmin()?`<label>Ícono en el mapa</label><select name="icono"><option value="">Automático</option>${["🚓","🚒","🏥","⛑️","🦺","🏛️","⛪","🌄","💧","🏞️","🦜","🍫","🎨","🏛","🚌","🏟️","📚"].map(e=>`<option ${v.icono===e?"selected":""}>${e}</option>`).join("")}</select><p class="ayuda">Si subes un logo arriba, en el mapa sale el logo.</p>`:""}
       <label>Descripción</label><textarea name="descripcion" maxlength="800" placeholder="Cuéntale a la gente qué ofreces, tu especialidad, tu historia…">${esc(v.descripcion)}</textarea>
       <div class="fila2"><div><label>Teléfono${esAdmin()?"":" *"}</label><input name="telefono" inputmode="tel" maxlength="20" value="${esc(v.telefono)}"></div>
       <div><label>WhatsApp</label><input name="whatsapp" inputmode="tel" maxlength="20" value="${esc(v.whatsapp)}"></div></div>
@@ -1018,6 +1038,7 @@ async function guardarEditor(e){
   const f = new FormData(e.target); if (f.get("sitio_web2")) return;
   const d = {};
   ["nombre","categoria","descripcion","telefono","whatsapp","direccion","horario","instagram","facebook","tiktok","web"].forEach(k => d[k] = String(f.get(k)||"").trim());
+  if (esAdmin()) d.icono = String(f.get("icono")||"");
   if (d.nombre.length < 2) return toast("Escribe el nombre del lugar");
   if (!esAdmin() && soloDig(d.telefono).length < 3) return toast("Escribe un teléfono válido");
   if (!ED.ubic && !ED.lugar) return toast("Marca la ubicación en el mapa");
