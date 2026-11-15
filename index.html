@@ -288,7 +288,7 @@ nav.tabs button.mas span{background:var(--coral);color:#fff;width:40px;height:30
 <div class="toast" id="toast"></div>
 <input type="file" id="archivo" accept="image/*" hidden>
 
-<script src="config.js?v=3"></script>
+<script src="config.js?v=4"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
 <script type="module">
@@ -1048,7 +1048,7 @@ async function guardarEditor(e){
     let id;
     if (ED.lugar){ id = ED.lugar.id; await Datos.actualizar(id, d); }
     else if (esAdmin()) id = await Datos.crear({...d, estado:"aprobado", oficial:true});
-    else id = await Datos.crear({...d, estado:"pendiente", oficial:false, ownerUid: yo().uid});
+    else { id = await Datos.crear({...d, estado:"pendiente", oficial:false, ownerUid: yo().uid}); avisarAdmin(d, id); }
     if (ED.portadaCambio && ED.portada) await Datos.ponerFoto(id, "portada", ED.portada, "portada");
     for (const fid of ED.borrar) await Datos.borrarFoto(id, fid);
     for (const fo of ED.fotos.filter(x => !x.guardada)) await Datos.ponerFoto(id, null, fo.img, fo.tipo);
@@ -1063,6 +1063,23 @@ async function guardarEditor(e){
     if ($("#admin").classList.contains("ver")) pintarAdmin();
     if ($("#perfil").classList.contains("ver")) abrirPerfil(id);
   } catch(err){ console.error(err); toast("No se pudo guardar: "+(err.code||err.message)); btn.disabled = false; btn.textContent = ED.lugar ? "Guardar cambios" : "Enviar para aprobación"; }
+}
+
+/* Aviso por correo al administrador cuando llega un lugar nuevo (FormSubmit.co) */
+function avisarAdmin(d, id){
+  if (!CONFIG.avisoCorreo) return;
+  const base = location.origin + location.pathname;
+  fetch("https://formsubmit.co/ajax/" + CONFIG.avisoCorreo, {
+    method: "POST", headers: {"Content-Type":"application/json", "Accept":"application/json"},
+    body: JSON.stringify({
+      _subject: `🏪 Nuevo lugar para aprobar: ${d.nombre}`,
+      _template: "table", _captcha: "false",
+      "Lugar": d.nombre, "Categoría": CATS[d.categoria]?.n || d.categoria,
+      "Teléfono": d.telefono, "WhatsApp": d.whatsapp || "—", "Dirección": d.direccion || "—",
+      "Descripción": d.descripcion || "—", "Inscrito por": (yo()?.displayName || "") + " " + (yo()?.email || ""),
+      "Aprobar aquí": base + "#admin", "Ver perfil": base + "#" + id
+    })
+  }).catch(() => {});
 }
 
 /* =====================================================================

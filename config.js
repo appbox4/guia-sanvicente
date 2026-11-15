@@ -15,6 +15,9 @@ window.GUIA_CONFIG = {
   // Debe ser el mismo que pongas en las reglas de Firestore.
   admins: ["appbox4@gmail.com"],
 
+  // Correo que recibe un aviso cada vez que alguien inscribe un lugar nuevo
+  avisoCorreo: "appbox4@gmail.com",
+
   // Pega aquí los datos de tu app web de Firebase (ver GUIA.md, paso 3).
   // Mientras estén vacíos, la guía funciona en "modo de prueba".
   firebase: {
