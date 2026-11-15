@@ -114,8 +114,12 @@ nav.tabs button.mas span{background:var(--coral);color:#fff;width:40px;height:30
 .pin-of img{width:100%;height:100%;object-fit:cover}
 .yo{width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 7px rgba(37,99,235,.25)}
 .leaflet-control-zoom{display:none}
-.marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:rgba(15,118,110,.25)!important}
-.marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div{background:var(--prim)!important;color:#fff;font-weight:900;font-family:Nunito,sans-serif}
+.burbuja{background:transparent!important}
+.burbuja div{width:100%;height:100%;border-radius:50%;background:var(--prim);color:#fff;font-weight:900;font-family:Nunito,sans-serif;font-size:14px;display:grid;place-items:center;border:3px solid #fff;box-shadow:0 0 0 5px rgba(15,118,110,.22),0 3px 10px rgba(0,0,0,.25)}
+.pin-dest{width:46px;height:46px;border-radius:50%;border:3px solid #f59e0b;background:#fff;display:grid;place-items:center;font-size:23px;overflow:hidden;box-shadow:0 0 0 3px #fff,0 4px 12px rgba(0,0,0,.35)}
+.pin-dest img{width:100%;height:100%;object-fit:cover}
+.tag.dest{background:#fef3c7;color:#92400e}
+.tarjeta.dest{border:2px solid #f59e0b;background:#fffbeb}
 .vista-pin{position:absolute;left:12px;right:74px;bottom:16px;z-index:4;background:#fff;border-radius:18px;box-shadow:var(--sombra);display:none;gap:10px;align-items:center;padding:10px;cursor:pointer}
 .vista-pin.ver{display:flex}
 .vista-pin .ico{width:52px;height:52px}
@@ -643,6 +647,7 @@ function filtrados(){
   return lugares.filter(l => (!filtroCat || l.categoria===filtroCat) &&
     (!texto || norm([l.nombre,l.descripcion,l.direccion,CATS[l.categoria]?.n,(l.menu||[]).map(m=>m.n).join(" ")].join(" ")).includes(texto)))
   .sort((a,b) => {
+    if (!!b.destacado !== !!a.destacado) return b.destacado ? 1 : -1;
     if (ordenar==="estrellas"){ const pa=promGeneral(a)??-1, pb=promGeneral(b)??-1; if (pa!==pb) return pb-pa; return (b.resumen?.n||0)-(a.resumen?.n||0); }
     if (miUbic){ const da=distM(a), db=distM(b); if (da!=null||db!=null) return (da??1e12)-(db??1e12); }
     return (a.categoria==="emergencia"?0:1)-(b.categoria==="emergencia"?0:1) || a.nombre.localeCompare(b.nombre,"es");
@@ -652,12 +657,18 @@ function iniciarMapa(){
   if (!window.L){ $("#mapa").innerHTML = '<div class="vacio">No se pudo cargar el mapa. Revisa tu conexión.</div>'; return; }
   mapa = L.map("mapa", {zoomControl:false}).setView(CONFIG.centro, CONFIG.zoom);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"}).addTo(mapa);
-  grupo = L.markerClusterGroup({showCoverageOnHover:false, maxClusterRadius:45});
+  grupo = L.markerClusterGroup({
+    showCoverageOnHover:false, maxClusterRadius:35, disableClusteringAtZoom:15, spiderfyOnMaxZoom:true,
+    iconCreateFunction: c => { const n = c.getChildCount(), t = n < 10 ? 36 : n < 50 ? 42 : 50;
+      return L.divIcon({className:"burbuja", html:`<div>${n}</div>`, iconSize:[t,t]}); }
+  });
   mapa.addLayer(grupo);
   mapa.on("click", () => $("#vistaPin").classList.remove("ver"));
 }
 function iconoPin(l){   // todos los lugares: círculo del color de su categoría
   const col = CATS[l.categoria]?.c || "#555";
+  if (l.destacado)       // destacados (suscripción): logo grande con borde dorado
+    return L.divIcon({className:"", html:`<div class="pin-dest">${icoHtml(l)}</div>`, iconSize:[46,46], iconAnchor:[23,23]});
   return L.divIcon({className:"", html:`<div class="pin" style="background:${col}"></div>`, iconSize:[24,24], iconAnchor:[12,12]});
 }
 
@@ -665,10 +676,10 @@ function pintar(ajustar){
   const fl = filtrados();
   $("#lista").innerHTML = `<div class="lista-cab">${fl.length} lugar${fl.length===1?"":"es"}${filtroCat?" en "+CATS[filtroCat].n:""}</div>
     <div class="orden"><button data-o="auto" class="${ordenar==="auto"?"on":""}">${miUbic?"📍 Más cercanos":"🔤 Todos"}</button><button data-o="estrellas" class="${ordenar==="estrellas"?"on":""}">⭐ Mejor calificados</button></div>` +
-    (fl.length ? fl.map(l => `<div class="tarjeta" data-id="${esc(l.id)}">
+    (fl.length ? fl.map(l => `<div class="tarjeta ${l.destacado?"dest":""}" data-id="${esc(l.id)}">
         <div class="ico" style="background:${CATS[l.categoria]?.c}1f">${icoHtml(l)}</div>
         <div class="cuerpo"><h3>${esc(l.nombre)}</h3><p>${esc(l.direccion || l.descripcion || CATS[l.categoria]?.n || "")}</p>
-          ${calHtml(l)} ${l.oficial?'<span class="tag oficial">✓ Del municipio</span>':''} ${!tieneUbic(l)?'<span class="tag sinpin">Ubicación pendiente</span>':''}</div>
+          ${calHtml(l)} ${l.destacado?'<span class="tag dest">⭐ Destacado</span>':''} ${l.oficial?'<span class="tag oficial">✓ Del municipio</span>':''} ${!tieneUbic(l)?'<span class="tag sinpin">Ubicación pendiente</span>':''}</div>
         ${distM(l)!=null?`<span class="dist">${fmtDist(distM(l))}</span>`:""}
       </div>`).join("")
     : `<div class="vacio">No encontramos lugares con ese filtro.</div>`) +
@@ -678,9 +689,9 @@ function pintar(ajustar){
   if (!capaOficial){ capaOficial = L.layerGroup(); mapa.addLayer(capaOficial); }
   capaOficial.clearLayers();
   fl.filter(tieneUbic).forEach(l => {
-    const m = L.marker([l.lat,l.lng], {icon: iconoPin(l), title: l.nombre, zIndexOffset: l.categoria==="emergencia" ? 1000 : 0});
+    const m = L.marker([l.lat,l.lng], {icon: iconoPin(l), title: l.nombre, zIndexOffset: l.destacado ? 1000 : 0});
     m.on("click", ev => { L.DomEvent.stopPropagation(ev); mostrarVistaPin(l); });
-    marcadores[l.id] = m; grupo.addLayer(m);
+    marcadores[l.id] = m; (l.destacado ? capaOficial : grupo).addLayer(m);
   });
   if (ajustar && filtroCat && grupo.getLayers().length) mapa.fitBounds(grupo.getBounds().pad(0.2), {maxZoom:16});
 }
@@ -771,7 +782,7 @@ async function abrirPerfil(id, pest="info"){
     <div class="cab-perfil">
       <div class="avatar" style="background:${c.c}1f">${icoHtml(l)}</div>
       <h1>${esc(l.nombre)}</h1>
-      <div class="linea">${calHtml(l)}<span>${c.i||""} ${esc(c.n||"")}</span>${distM(l)!=null?`<span>🚶 ${fmtDist(distM(l))}</span>`:""}${l.oficial?'<span class="tag oficial">✓ Del municipio</span>':''}</div>
+      <div class="linea">${calHtml(l)}<span>${c.i||""} ${esc(c.n||"")}</span>${l.destacado?'<span class="tag dest">⭐ Destacado</span>':''}${distM(l)!=null?`<span>🚶 ${fmtDist(distM(l))}</span>`:""}${l.oficial?'<span class="tag oficial">✓ Del municipio</span>':''}</div>
       ${estadoTag}
       <div class="acciones">
         ${tel?`<a class="acc prim" href="tel:${tel}"><span>📞</span>Llamar</a>`:""}
@@ -994,7 +1005,8 @@ async function abrirEditor(lugar){
     <div class="bloque"><h3>📝 Información</h3>
       <label>Nombre del lugar *</label><input name="nombre" maxlength="90" value="${esc(v.nombre)}">
       <label>Categoría *</label><select name="categoria">${catOpts}</select>
-      ${esAdmin()?`<label>Ícono en el mapa</label><select name="icono"><option value="">Automático</option>${["🚓","🚒","🏥","⛑️","🦺","🏛️","⛪","🌄","💧","🏞️","🦜","🍫","🎨","🏛","🚌","🏟️","📚"].map(e=>`<option ${v.icono===e?"selected":""}>${e}</option>`).join("")}</select><p class="ayuda">Si subes un logo arriba, en el mapa sale el logo.</p>`:""}
+      ${esAdmin()?`<label>Ícono en el mapa</label><select name="icono"><option value="">Automático</option>${["🚓","🚒","🏥","⛑️","🦺","🏛️","⛪","🌄","💧","🏞️","🦜","🍫","🎨","🏛","🚌","🏟️","📚"].map(e=>`<option ${v.icono===e?"selected":""}>${e}</option>`).join("")}</select><p class="ayuda">Si subes un logo arriba, en el mapa sale el logo.</p>
+      <label style="display:flex;gap:10px;align-items:center;background:#fffbeb;border:1.5px solid #f6d48a;border-radius:13px;padding:12px"><input type="checkbox" name="destacado" ${v.destacado?"checked":""} style="width:22px;height:22px">⭐ Lugar destacado (suscripción): sale con su logo en el mapa, nunca se agrupa y va primero en la lista</label>`:""}
       <label>Descripción</label><textarea name="descripcion" maxlength="800" placeholder="Cuéntale a la gente qué ofreces, tu especialidad, tu historia…">${esc(v.descripcion)}</textarea>
       <div class="fila2"><div><label>Teléfono${esAdmin()?"":" *"}</label><input name="telefono" inputmode="tel" maxlength="20" value="${esc(v.telefono)}"></div>
       <div><label>WhatsApp</label><input name="whatsapp" inputmode="tel" maxlength="20" value="${esc(v.whatsapp)}"></div></div>
@@ -1082,7 +1094,7 @@ async function guardarEditor(e){
   const f = new FormData(e.target); if (f.get("sitio_web2")) return;
   const d = {};
   ["nombre","categoria","descripcion","telefono","whatsapp","direccion","horario","instagram","facebook","tiktok","web"].forEach(k => d[k] = String(f.get(k)||"").trim());
-  if (esAdmin()) d.icono = String(f.get("icono")||"");
+  if (esAdmin()){ d.icono = String(f.get("icono")||""); d.destacado = f.get("destacado")==="on"; }
   if (d.nombre.length < 2) return toast("Escribe el nombre del lugar");
   if (!esAdmin() && soloDig(d.telefono).length < 3) return toast("Escribe un teléfono válido");
   if (!ED.ubic && !ED.lugar) return toast("Marca la ubicación en el mapa");
