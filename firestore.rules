@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cambia TU_CORREO@gmail.com por el correo de Google del administrador
+    // (el mismo que pusiste en config.js).
+    function esAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['TU_CORREO@gmail.com'];
+    }
+    function conSesion() { return request.auth != null; }
+    function lugar(id) { return get(/databases/$(database)/documents/lugares/$(id)).data; }
+    function esDueno(id) { return conSesion() && lugar(id).get('ownerUid', '') == request.auth.uid; }
+
+    function texto(d, campo, max) {
+      return !(campo in d) || (d[campo] is string && d[campo].size() <= max);
+    }
+    function imagen(s, max) {
+      return s is string && s.size() <= max && s.matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$');
+    }
+
+    // ---------- Perfil del lugar (lo llena el dueño) ----------
+    function perfilValido(d) {
+      return d.nombre is string && d.nombre.size() >= 2 && d.nombre.size() <= 90
+        && d.categoria in ['salud','restaurante','hotel','turismo','comercio','servicios','transporte']
+        && d.telefono is string && d.telefono.size() >= 3 && d.telefono.size() <= 20
+        && texto(d,'descripcion',800) && texto(d,'whatsapp',20) && texto(d,'direccion',150)
+        && texto(d,'horario',120) && texto(d,'instagram',150) && texto(d,'facebook',150)
+        && texto(d,'tiktok',150) && texto(d,'web',200)
+        && (!('lat' in d) || (d.lat is number && d.lng is number))
+        && (!('menu' in d) || (d.menu is list && d.menu.size() <= 80))
+        && (!('miniatura' in d) || imagen(d.miniatura, 60000));
+    }
+    function camposDueno() {
+      return ['nombre','categoria','descripcion','telefono','whatsapp','direccion','horario',
+              'instagram','facebook','tiktok','web','lat','lng','menu','miniatura'];
+    }
+
+    // ---------- Reseñas ----------
+    function estrella(p, k) {
+      return !(k in p) || (p[k] is int && p[k] >= 1 && p[k] <= 5);
+    }
+    function resenaValida(d, uid) {
+      let p = d.puntos;
+      return d.keys().hasOnly(['uid','autor','puntos','comentario','fecha'])
+        && d.uid == uid
+        && d.autor is string && d.autor.size() >= 1 && d.autor.size() <= 40
+        && d.comentario is string && d.comentario.size() <= 500
+        && d.fecha == request.time
+        && p is map && p.size() >= 3
+        && p.keys().hasOnly(['sabor','atencion','tiempo','precio','ambiente','ubicacion','limpieza','comodidad'])
+        && estrella(p,'sabor') && estrella(p,'atencion') && estrella(p,'tiempo') && estrella(p,'precio')
+        && estrella(p,'ambiente') && estrella(p,'ubicacion') && estrella(p,'limpieza') && estrella(p,'comodidad');
+    }
+    // El resumen de estrellas debe cambiar exactamente lo que aporta la reseña:
+    // nadie puede inflar ni hundir el promedio de un lugar.
+    function suma(r1, r0, nuevo, viejo, k) {
+      return r1.get(k, 0) == r0.get(k, 0) + nuevo.get(k, 0) - viejo.get(k, 0);
+    }
+    function resumenConsistente(lugarId, uid) {
+      let rRef = /databases/$(database)/documents/lugares/$(lugarId)/resenas/$(uid);
+      let lRef = /databases/$(database)/documents/lugares/$(lugarId);
+      let antes = exists(rRef);
+      let nuevo = getAfter(rRef).data.puntos;
+      let viejo = antes ? get(rRef).data.puntos : {};
+      let l0 = get(lRef).data;
+      let r0 = l0.get('resumen', {'n': 0, 's': {}});
+      let r1 = getAfter(lRef).data.get('resumen', {'n': 0, 's': {}});
+      return l0.estado == 'aprobado'
+        && l0.get('ownerUid', '') != uid
+        && r1.keys().hasOnly(['n','s'])
+        && r1.n == r0.n + (antes ? 0 : 1)
+        && suma(r1.s, r0.s, nuevo, viejo, 'sabor') && suma(r1.s, r0.s, nuevo, viejo, 'atencion')
+        && suma(r1.s, r0.s, nuevo, viejo, 'tiempo') && suma(r1.s, r0.s, nuevo, viejo, 'precio')
+        && suma(r1.s, r0.s, nuevo, viejo, 'ambiente') && suma(r1.s, r0.s, nuevo, viejo, 'ubicacion')
+        && suma(r1.s, r0.s, nuevo, viejo, 'limpieza') && suma(r1.s, r0.s, nuevo, viejo, 'comodidad');
+    }
+
+    match /lugares/{id} {
+      // Todos ven los publicados; el dueño ve los suyos aunque estén en revisión.
+      allow read: if resource.data.estado == 'aprobado' || esAdmin()
+        || (conSesion() && resource.data.get('ownerUid', '') == request.auth.uid);
+
+      // Cualquiera con cuenta de Google crea el perfil de su lugar; queda "pendiente".
+      allow create: if esAdmin() || (
+        conSesion()
+        && request.resource.data.keys().hasOnly(camposDueno().concat(['estado','oficial','ownerUid','creado']))
+        && perfilValido(request.resource.data)
+        && request.resource.data.lat is number
+        && request.resource.data.estado == 'pendiente'
+        && request.resource.data.oficial == false
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.creado == request.time);
+
+      allow update: if esAdmin()
+        // El dueño edita su perfil, pero no puede aprobarse ni tocar sus estrellas.
+        || (esDueno(id)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(camposDueno())
+            && perfilValido(request.resource.data))
+        // Quien deja una reseña actualiza el resumen de estrellas, junto con su reseña.
+        || (conSesion()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resumen'])
+            && resumenConsistente(id, request.auth.uid));
+
+      allow delete: if esAdmin();
+
+      // Fotos del perfil: portada, galería y carta (solo el dueño o el admin las suben).
+      match /fotos/{fid} {
+        allow read: if lugar(id).estado == 'aprobado' || esAdmin() || esDueno(id);
+        allow create, update: if (esAdmin() || esDueno(id))
+          && request.resource.data.keys().hasOnly(['img','tipo','fecha'])
+          && request.resource.data.tipo in ['portada','galeria','menu']
+          && (request.resource.data.tipo != 'portada' || fid == 'portada')
+          && imagen(request.resource.data.img, 900000)
+          && request.resource.data.fecha == request.time;
+        allow delete: if esAdmin() || esDueno(id);
+      }
+
+      // Una reseña por persona (el id es su usuario de Google).
+      match /resenas/{uid} {
+        allow read: if true;
+        allow create, update: if conSesion()
+          && request.auth.uid == uid
+          && resenaValida(request.resource.data, uid)
+          && resumenConsistente(id, uid);
+        allow delete: if esAdmin();
+      }
+    }
+  }
+}

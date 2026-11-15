@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guía de San Vicente de Chucurí</title>
+<meta name="description" content="Todo San Vicente de Chucurí en un solo link: emergencias, restaurantes, hoteles, turismo y comercio, con perfiles y reseñas de la gente.">
+<meta property="og:title" content="Guía de San Vicente de Chucurí">
+<meta property="og:description" content="Restaurantes, hoteles, turismo y comercio del pueblo en un mapa, con reseñas de la gente.">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --prim:#0f766e; --prim-osc:#0b4f4a; --prim-claro:#e3f3f0;
+  --acento:#f59e0b; --coral:#ef6c57;
+  --fondo:#f4f7f6; --texto:#12302b; --gris:#64748b; --borde:#dbe5e2; --suave:#eef4f2;
+  --rojo:#dc2626; --estrella:#f59e0b;
+  --sombra:0 8px 28px rgba(11,79,74,.16);
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:Nunito,system-ui,sans-serif;color:var(--texto);background:var(--fondo)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+a{color:inherit}
+img{display:block}
+.app{display:flex;flex-direction:column;height:100%;height:100dvh;position:relative}
+
+/* Encabezado */
+header{background:linear-gradient(135deg,var(--prim) 0%,var(--prim-osc) 100%);color:#fff;padding:calc(12px + var(--safe-t)) 14px 12px;z-index:20}
+.titulo{display:flex;align-items:center;gap:10px}
+.titulo.con-logo{flex-direction:column;gap:6px;text-align:center;margin:-4px -6px 0}
+.titulo.con-logo .logo-pueblo{width:100%;height:auto;max-width:100%;filter:drop-shadow(0 4px 10px rgba(0,0,0,.25))}
+.titulo.con-logo h1{font-size:15px;font-weight:800;opacity:.95}
+.titulo.con-logo small{display:none}
+.titulo .logo{width:38px;height:38px;border-radius:12px;background:#fff;display:grid;place-items:center;font-size:20px}
+.titulo h1{font-size:18px;margin:0;font-weight:900;line-height:1.1}
+.titulo small{display:block;font-weight:600;opacity:.85;font-size:12.5px}
+.buscar{margin-top:10px;position:relative}
+.buscar input{width:100%;border:0;border-radius:14px;padding:12px 14px 12px 40px;font-size:16px;outline:none;background:#fff}
+.buscar span{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5}
+
+/* Emergencias */
+.sos{display:flex;gap:8px;overflow-x:auto;padding:9px 12px;background:#fff5f4;border-bottom:1px solid #fbd5d0;scrollbar-width:none;z-index:15}
+.sos::-webkit-scrollbar{display:none}
+.sos b{color:var(--rojo);font-size:13px;white-space:nowrap;align-self:center}
+.sos a{flex:none;text-decoration:none;background:var(--rojo);color:#fff;border-radius:999px;padding:9px 14px;font-weight:800;font-size:14px;white-space:nowrap}
+.sos a.sec{background:#fff;color:var(--rojo);border:1.5px solid var(--rojo)}
+
+/* Categorías */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 12px;background:#fff;border-bottom:1px solid var(--borde);scrollbar-width:none;z-index:14}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1.5px solid var(--borde);background:#fff;border-radius:999px;padding:9px 14px;min-height:40px;font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px}
+.chip .dot{width:10px;height:10px;border-radius:50%}
+.chip.on{background:var(--prim);border-color:var(--prim);color:#fff}
+
+/* Cuerpo */
+main{flex:1;position:relative;display:flex;min-height:0}
+#mapa{flex:1;z-index:1;background:#e5ece9}
+.lista{position:absolute;inset:0;overflow-y:auto;background:var(--fondo);z-index:5;display:none;padding-bottom:14px}
+.lista.ver{display:block}
+.lista-cab{padding:14px 16px 2px;color:var(--gris);font-size:14px;font-weight:700}
+.orden{display:flex;gap:8px;padding:8px 12px 2px}
+.orden button{border:1.5px solid var(--borde);background:#fff;border-radius:999px;padding:7px 12px;font-weight:800;font-size:13px;min-height:36px}
+.orden button.on{background:var(--texto);border-color:var(--texto);color:#fff}
+.tarjeta{display:flex;gap:12px;align-items:center;background:#fff;margin:10px 12px;padding:12px;border-radius:18px;border:1px solid var(--borde);cursor:pointer;min-height:76px;-webkit-tap-highlight-color:transparent}
+.tarjeta:active{transform:scale(.98)}
+.tarjeta .cuerpo{flex:1;min-width:0}
+.ico{flex:none;width:56px;height:56px;border-radius:16px;display:grid;place-items:center;font-size:26px;overflow:hidden}
+.ico img{width:100%;height:100%;object-fit:cover}
+.tarjeta h3{margin:0 0 2px;font-size:16.5px;line-height:1.2}
+.tarjeta p{margin:0;color:var(--gris);font-size:13.5px;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical}
+.dist{flex:none;font-size:12.5px;font-weight:800;color:var(--prim);background:var(--prim-claro);border-radius:8px;padding:4px 7px}
+.tag{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:7px;margin-top:5px;background:var(--suave);color:var(--prim-osc)}
+.tag.oficial{background:#e0f2fe;color:#0369a1}
+.tag.sinpin{background:#fef3c7;color:#92400e}
+.tag.pend{background:#fef3c7;color:#92400e}.tag.ok{background:#dcfce7;color:#166534}.tag.no{background:#fee2e2;color:#991b1b}
+.cal{display:inline-flex;align-items:center;gap:4px;font-size:13.5px;font-weight:900;margin-top:3px}
+.cal small{color:var(--gris);font-weight:700}
+.estrellas{color:var(--estrella);letter-spacing:1px;white-space:nowrap}
+.vacio{padding:30px 20px;text-align:center;color:var(--gris)}
+.pie{font-size:13px;color:var(--gris);text-align:center;padding:18px}
+
+/* Barra inferior */
+nav.tabs{display:flex;background:#fff;border-top:1px solid var(--borde);padding-bottom:var(--safe-b);z-index:20;box-shadow:0 -4px 16px rgba(11,79,74,.06)}
+nav.tabs button{flex:1;border:0;background:none;padding:8px 2px 9px;font-weight:800;font-size:12px;color:var(--gris);display:flex;flex-direction:column;align-items:center;gap:1px;min-height:58px}
+nav.tabs button span{font-size:22px;line-height:1.1}
+nav.tabs button.on{color:var(--prim)}
+nav.tabs button.mas span{background:var(--coral);color:#fff;width:40px;height:30px;border-radius:12px;display:grid;place-items:center;font-size:18px}
+
+/* Mapa */
+.flotantes{position:absolute;right:12px;bottom:16px;z-index:4;display:flex;flex-direction:column;gap:10px}
+.flot{width:50px;height:50px;border-radius:50%;border:0;background:#fff;box-shadow:var(--sombra);font-size:22px;display:grid;place-items:center}
+.flot:active{transform:scale(.93)}
+.pin{width:24px;height:24px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 7px rgba(0,0,0,.35)}
+.yo{width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 7px rgba(37,99,235,.25)}
+.leaflet-control-zoom{display:none}
+.marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:rgba(15,118,110,.25)!important}
+.marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div{background:var(--prim)!important;color:#fff;font-weight:900;font-family:Nunito,sans-serif}
+.vista-pin{position:absolute;left:12px;right:74px;bottom:16px;z-index:4;background:#fff;border-radius:18px;box-shadow:var(--sombra);display:none;gap:10px;align-items:center;padding:10px;cursor:pointer}
+.vista-pin.ver{display:flex}
+.vista-pin .ico{width:52px;height:52px}
+.vista-pin h3{margin:0;font-size:15.5px}
+.vista-pin p{margin:2px 0 0;font-size:13px;color:var(--gris)}
+.vista-pin .ir{margin-left:auto;font-size:13px;font-weight:900;color:var(--prim);white-space:nowrap}
+
+/* Pantallas completas (perfil, editor, mi negocio, admin) */
+.pantalla{position:fixed;inset:0;background:var(--fondo);z-index:900;overflow-y:auto;display:none;-webkit-overflow-scrolling:touch}
+.pantalla.ver{display:block;animation:entra .22s ease}
+@keyframes entra{from{transform:translateX(30px);opacity:.3}to{transform:none;opacity:1}}
+.barra-sup{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:calc(10px + var(--safe-t)) 12px 10px;background:#fff;border-bottom:1px solid var(--borde)}
+.barra-sup h2{margin:0;font-size:17px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atras{width:40px;height:40px;border-radius:50%;border:0;background:var(--suave);font-size:20px;flex:none}
+.contenido{padding:14px 14px calc(30px + var(--safe-b))}
+
+/* Perfil */
+.portada{position:relative;height:220px;background:linear-gradient(135deg,var(--prim),var(--prim-osc));overflow:hidden}
+.portada img{width:100%;height:100%;object-fit:cover}
+.portada .emoji{position:absolute;inset:0;display:grid;place-items:center;font-size:80px;opacity:.35}
+.portada .btns{position:absolute;top:calc(10px + var(--safe-t));left:12px;right:12px;display:flex;justify-content:space-between}
+.portada .btns button{width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.92);font-size:19px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.cab-perfil{position:relative;background:#fff;border-radius:24px 24px 0 0;margin-top:-24px;padding:0 16px 14px}
+.avatar{width:86px;height:86px;border-radius:24px;border:4px solid #fff;background:var(--suave);margin-top:-44px;overflow:hidden;display:grid;place-items:center;font-size:38px;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.cab-perfil h1{margin:10px 0 2px;font-size:23px;line-height:1.15}
+.cab-perfil .linea{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:14px;color:var(--gris);font-weight:700}
+.cab-perfil .linea .cal{font-size:15px;margin:0;color:var(--texto)}
+.acciones{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.acc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;border:0;background:var(--suave);border-radius:16px;padding:10px 4px;min-height:64px;font-weight:800;font-size:12.5px;color:var(--texto);text-align:center}
+.acc span{font-size:22px}
+.acc.prim{background:var(--prim);color:#fff}
+.acc.wa{background:#25d366;color:#fff}
+.redes{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.redes a{display:flex;align-items:center;gap:6px;text-decoration:none;border:1.5px solid var(--borde);border-radius:999px;padding:7px 12px;font-weight:800;font-size:13.5px;background:#fff}
+.pestanas-perfil{position:sticky;top:0;z-index:4;display:flex;background:#fff;border-bottom:1px solid var(--borde);padding-top:var(--safe-t)}
+.pestanas-perfil button{flex:1;border:0;background:none;padding:13px 4px;font-weight:900;font-size:14px;color:var(--gris);border-bottom:3px solid transparent}
+.pestanas-perfil button.on{color:var(--prim);border-color:var(--prim)}
+.seccion{background:#fff;margin-top:10px;padding:16px}
+.seccion h3{margin:0 0 10px;font-size:17px}
+.desc{line-height:1.55;color:#334155;margin:0;white-space:pre-line}
+.dato{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--suave);font-size:15px;align-items:flex-start}
+.dato:first-of-type{border-top:0}
+.dato span:first-child{width:24px;text-align:center;flex:none}
+.menu-item{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--suave)}
+.menu-item:first-child{border-top:0}
+.menu-item b{font-size:15.5px}
+.menu-item p{margin:2px 0 0;font-size:13.5px;color:var(--gris)}
+.menu-item .precio{font-weight:900;color:var(--prim);white-space:nowrap}
+.galeria{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.galeria img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer}
+.visor{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1500;display:none;align-items:center;justify-content:center}
+.visor.ver{display:flex}
+.visor img{max-width:100%;max-height:90vh;object-fit:contain}
+.visor button{position:absolute;top:calc(14px + var(--safe-t));right:14px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.2);color:#fff;font-size:20px}
+.btn-editar-perfil{display:block;width:100%;margin-top:12px;border:2px dashed var(--prim);background:var(--prim-claro);color:var(--prim-osc);border-radius:14px;padding:12px;font-weight:900}
+
+/* Reseñas */
+.resumen{display:flex;gap:14px;align-items:center;background:var(--suave);border-radius:18px;padding:14px}
+.resumen .grande{font-size:42px;font-weight:900;line-height:1;text-align:center}
+.resumen .grande small{display:block;font-size:12.5px;color:var(--gris);font-weight:700;margin-top:5px}
+.barras{flex:1;display:flex;flex-direction:column;gap:6px}
+.barra{display:grid;grid-template-columns:24px 1fr 30px;align-items:center;gap:6px;font-size:13px;font-weight:800}
+.barra .fondo{height:8px;background:#dbe5e2;border-radius:9px;overflow:hidden}
+.barra .lleno{height:100%;background:var(--estrella);border-radius:9px}
+.leyenda{font-size:12.5px;color:var(--gris);margin-top:8px;line-height:1.5}
+.resena{padding:13px 0;border-top:1px solid var(--suave)}
+.resena .quien{display:flex;justify-content:space-between;gap:8px;font-weight:900;font-size:15px}
+.resena .quien small{color:var(--gris);font-weight:600}
+.resena p{margin:6px 0 0;font-size:14.5px;line-height:1.45;color:#334155}
+.mini-asp{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.mini-asp span{font-size:12px;font-weight:800;background:var(--suave);border-radius:8px;padding:3px 7px}
+.b-del{border:0;background:#fee2e2;color:var(--rojo);border-radius:8px;padding:6px 10px;font-weight:800;font-size:12px;margin-top:7px}
+.calificar-fila{background:var(--suave);border-radius:16px;padding:10px 12px;margin-top:10px}
+.calificar-fila .nom{font-weight:900;font-size:15px;display:flex;justify-content:space-between}
+.calificar-fila .nom small{color:var(--gris);font-weight:700}
+.pick{display:flex;justify-content:space-between;margin-top:4px}
+.pick button{border:0;background:none;font-size:34px;line-height:1;padding:4px;color:#cbd5d1;min-width:44px;min-height:44px}
+.pick button.on{color:var(--estrella)}
+
+/* Formularios */
+.form label{display:block;font-weight:800;font-size:14.5px;margin:14px 0 6px}
+.form input,.form select,.form textarea{width:100%;border:1.5px solid var(--borde);border-radius:13px;padding:13px 14px;font-size:16px;background:#fff;outline:none}
+.form input:focus,.form select:focus,.form textarea:focus{border-color:var(--prim)}
+.form textarea{min-height:90px;resize:vertical}
+.bloque{background:#fff;border-radius:20px;padding:16px;margin-bottom:12px;border:1px solid var(--borde)}
+.bloque>h3{margin:0 0 2px;font-size:17px}
+.bloque>.ayuda:first-of-type{margin-top:0}
+.ayuda{font-size:13px;color:var(--gris);margin-top:5px;line-height:1.4}
+.fila2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:360px){.fila2{grid-template-columns:1fr}}
+.mini-mapa{height:260px;border-radius:14px;border:1.5px solid var(--borde);margin-top:8px}
+.subir-portada{position:relative;height:150px;border-radius:16px;overflow:hidden;background:var(--suave);border:2px dashed #b8cbc6;display:grid;place-items:center;color:var(--gris);font-weight:800;cursor:pointer;margin-top:8px}
+.subir-portada img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.subir-logo{width:96px;height:96px;border-radius:24px;overflow:hidden;background:var(--suave);border:2px dashed #b8cbc6;display:grid;place-items:center;font-size:13px;text-align:center;color:var(--gris);font-weight:800;cursor:pointer;margin-top:8px;position:relative}
+.subir-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fotos-ed{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.fotos-ed .f{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--suave)}
+.fotos-ed .f img{width:100%;height:100%;object-fit:cover}
+.fotos-ed .f button{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:14px}
+.fotos-ed .add{aspect-ratio:1;border-radius:10px;border:2px dashed #b8cbc6;background:#fff;display:grid;place-items:center;font-size:28px;color:var(--gris)}
+.menu-ed{border-top:1px solid var(--suave);padding:10px 0;display:flex;gap:8px;align-items:center}
+.menu-ed div{flex:1;min-width:0}
+.menu-ed button{border:0;background:#fee2e2;color:var(--rojo);border-radius:10px;width:36px;height:36px;font-weight:900;flex:none}
+.agregar-menu{display:grid;grid-template-columns:1fr 110px;gap:8px;margin-top:10px}
+.agregar-menu input:last-child{grid-column:1/-1}
+.btn{border:0;border-radius:14px;padding:15px 16px;min-height:52px;font-weight:900;font-size:15.5px;background:var(--prim);color:#fff;width:100%;margin-top:14px;display:block;text-align:center;text-decoration:none}
+.btn.sec{background:var(--suave);color:var(--texto)}
+.btn.coral{background:var(--coral)}
+.btn:disabled{opacity:.55}
+.aviso{background:#fef9e7;border:1px solid #f6e3a1;border-radius:14px;padding:11px 13px;font-size:14px;margin:10px 0;line-height:1.45}
+.aviso.ok{background:#e7f6ef;border-color:#b5e2cb}
+.trampa{position:absolute;left:-5000px}
+
+/* Mi negocio / Admin */
+.item{background:#fff;border:1px solid var(--borde);border-radius:18px;padding:14px;margin-bottom:10px}
+.item .top{display:flex;gap:12px;align-items:center}
+.item h3{margin:0;font-size:16px}
+.item .meta{font-size:13.5px;color:var(--gris);line-height:1.5;margin-top:6px}
+.item .botones{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.item .botones button,.item .botones a{border:0;border-radius:11px;padding:10px 13px;font-weight:900;font-size:14px;text-decoration:none;background:var(--suave)}
+.b-ok{background:var(--prim)!important;color:#fff}.b-no{background:#fee2e2!important;color:var(--rojo)}
+.pest-admin{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.pest-admin button{border:1.5px solid var(--borde);background:#fff;border-radius:999px;padding:8px 14px;font-weight:900}
+.pest-admin button.on{background:var(--texto);color:#fff;border-color:var(--texto)}
+
+/* Hoja inferior (calificar / login) */
+.velo{position:fixed;inset:0;background:rgba(10,30,28,.5);z-index:1200;display:none;align-items:flex-end;justify-content:center}
+.velo.ver{display:flex}
+.hoja{background:#fff;width:100%;max-width:520px;max-height:92dvh;overflow-y:auto;border-radius:24px 24px 0 0;padding:8px 16px calc(18px + var(--safe-b));animation:sube .2s ease}
+@keyframes sube{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
+.asa{width:42px;height:5px;border-radius:9px;background:var(--borde);margin:4px auto 10px}
+.hoja-cab{display:flex;gap:12px;align-items:center}
+.hoja-cab h2{margin:0;font-size:19px;line-height:1.2;flex:1}
+.cerrar{border:0;background:var(--suave);border-radius:50%;width:36px;height:36px;font-size:17px;flex:none}
+
+.toast{position:fixed;left:50%;bottom:calc(84px + var(--safe-b));transform:translateX(-50%);background:var(--texto);color:#fff;padding:12px 16px;border-radius:14px;font-weight:800;z-index:2000;display:none;max-width:90vw;text-align:center}
+.demo{background:#fef3c7;color:#78350f;font-size:12.5px;text-align:center;padding:6px 10px;font-weight:800}
+
+/* En pantallas grandes se ve como un celular centrado */
+@media (min-width:600px){
+  body{background:#dfe8e5}
+  .app,.pantalla{max-width:480px;margin:0 auto;right:0;left:0;box-shadow:0 0 40px rgba(11,79,74,.18)}
+  .app{background:var(--fondo)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="demo" id="demo" hidden>Modo de prueba: los datos se guardan solo en este navegador hasta conectar la base de datos.</div>
+  <header>
+    <div class="titulo">
+      <div class="logo">🌄</div>
+      <div><h1 id="nombrePueblo">San Vicente de Chucurí</h1><small>Todo el pueblo en un solo link</small></div>
+    </div>
+    <div class="buscar"><span>🔍</span><input id="q" type="search" placeholder="Buscar restaurante, hotel, droguería…" autocomplete="off"></div>
+  </header>
+  <div class="sos" id="sos"><b>🚨 Emergencias</b></div>
+  <div class="chips" id="chips"></div>
+  <main>
+    <section class="lista" id="lista"></section>
+    <div id="mapa"></div>
+    <div class="vista-pin" id="vistaPin"></div>
+    <div class="flotantes">
+      <button class="flot" id="btnCerca" aria-label="Cerca de mí">📍</button>
+      <button class="flot" id="btnPueblo" aria-label="Ver todo el pueblo">🏘️</button>
+    </div>
+  </main>
+  <nav class="tabs">
+    <button class="on" data-tab="mapa"><span>🗺️</span>Mapa</button>
+    <button data-tab="lista"><span>📋</span>Lista</button>
+    <button data-tab="cerca"><span>🧭</span>Cerca de mí</button>
+    <button data-tab="negocio" class="mas"><span>🏪</span>Mi negocio</button>
+  </nav>
+</div>
+
+<div class="pantalla" id="perfil"></div>
+<div class="pantalla" id="editor"></div>
+<div class="pantalla" id="negocio"></div>
+<div class="pantalla" id="admin"></div>
+<div class="velo" id="velo"><div class="hoja" id="hoja"></div></div>
+<div class="visor" id="visor"><img alt=""><button aria-label="Cerrar">✕</button></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="archivo" accept="image/*" hidden>
+
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script type="module">
+/* =====================================================================
+   1) CONFIGURACIÓN (se edita en config.js)
+   ===================================================================== */
+const CONFIG = Object.assign({pueblo:"San Vicente de Chucurí", departamento:"Santander", centro:[6.8810,-73.4100], zoom:15, admins:[], firebase:{}}, window.GUIA_CONFIG || {});
+CONFIG.firebase = CONFIG.firebase || {};
+
+/* =====================================================================
+   2) CATEGORÍAS, ASPECTOS Y DATOS BASE
+   ===================================================================== */
+const CATS = {
+  emergencia:  {n:"Emergencias",  i:"🚨", c:"#dc2626"},
+  salud:       {n:"Salud",        i:"🏥", c:"#db2777"},
+  restaurante: {n:"Restaurantes", i:"🍽️", c:"#ea580c"},
+  hotel:       {n:"Hoteles",      i:"🛏️", c:"#7c3aed"},
+  turismo:     {n:"Turismo",      i:"🌄", c:"#16a34a"},
+  comercio:    {n:"Comercio",     i:"🛍️", c:"#2563eb"},
+  servicios:   {n:"Servicios",    i:"🏛️", c:"#475569"},
+  transporte:  {n:"Transporte",   i:"🚌", c:"#0891b2"}
+};
+const ASPECTOS = {
+  sabor:{n:"Lo rico (sabor)",i:"😋"}, atencion:{n:"Atención y servicio",i:"🤝"}, tiempo:{n:"Rapidez (tiempo de espera)",i:"⏱️"},
+  precio:{n:"Buen precio",i:"💲"}, ambiente:{n:"Decoración y ambiente",i:"🎨"}, ubicacion:{n:"Ubicación",i:"📍"},
+  limpieza:{n:"Limpieza",i:"🧼"}, comodidad:{n:"Comodidad",i:"🛋️"}
+};
+const ASP_CAT = {
+  restaurante:["sabor","atencion","tiempo","precio","ambiente","ubicacion"],
+  hotel:["atencion","limpieza","comodidad","precio","ambiente","ubicacion"],
+  turismo:["atencion","limpieza","precio","ubicacion"],
+  comercio:["atencion","tiempo","precio","ubicacion"],
+  salud:["atencion","tiempo","limpieza","ubicacion"],
+  transporte:["atencion","tiempo","precio","comodidad"],
+  servicios:["atencion","tiempo","ubicacion"],
+  emergencia:[]
+};
+const NIVEL = ["","Muy malo","Malo","Regular","Bueno","Excelente"];
+const SOS = [
+  {t:"123 Emergencias", n:"123"}, {t:"Policía local", n:"3203064236", sec:true},
+  {t:"119 Bomberos", n:"119"}, {t:"132 Cruz Roja", n:"132", sec:true}, {t:"144 Defensa Civil", n:"144", sec:true}
+];
+/* Lugares base (el admin los importa y luego les pone el punto en el mapa) */
+const BASE = [
+  {nombre:"Estación de Policía San Vicente de Chucurí", categoria:"emergencia", telefono:"3203064236", direccion:"Casco urbano (confirmar dirección)", descripcion:"Estación de la Policía Nacional. En emergencia marca 123.", horario:"24 horas"},
+  {nombre:"Bomberos", categoria:"emergencia", telefono:"119", descripcion:"Incendios, rescates y emergencias. Línea nacional 119.", horario:"24 horas"},
+  {nombre:"Hospital de San Vicente de Chucurí (ESE)", categoria:"salud", direccion:"Calle 8 # 11-2 (confirmar)", descripcion:"Hospital local con servicio de urgencias.", horario:"Urgencias 24 horas"},
+  {nombre:"Alcaldía – Palacio Municipal", categoria:"servicios", direccion:"Calle 11 # 10-07", descripcion:"Alcaldía Municipal de San Vicente de Chucurí."},
+  {nombre:"Comisaría de Familia", categoria:"servicios", telefono:"3202736005", direccion:"Calle 11 # 10-07, Palacio Municipal", descripcion:"Atención y protección a la familia, niños y mujeres."},
+  {nombre:"Embalse Topocoro", categoria:"turismo", descripcion:"El gran embalse de la región, para paseos en lancha, pesca y paisaje."},
+  {nombre:"Parque Natural Miraflores", categoria:"turismo", descripcion:"Naturaleza, senderos y avistamiento de aves."},
+  {nombre:"Cascada El Salto de la India", categoria:"turismo", descripcion:"Cascada rodeada de montaña, ideal para caminata."},
+  {nombre:"Cascada El Caracolí", categoria:"turismo", descripcion:"Otra de las cascadas del municipio."},
+  {nombre:"Río Chucurí", categoria:"turismo", descripcion:"Río que da nombre a la región; charcos y paisaje."},
+  {nombre:"Cueva de los Aviones", categoria:"turismo", descripcion:"Cueva para recorrido guiado."},
+  {nombre:"Casa Memoria Histórica", categoria:"turismo", descripcion:"Museo sobre la historia del municipio."},
+  {nombre:"Murales del pueblo", categoria:"turismo", descripcion:"Ruta de murales por las calles del casco urbano."},
+  {nombre:"Tour del cacao", categoria:"turismo", descripcion:"San Vicente es la Capital Cacaotera de Colombia: conoce una finca y el proceso del chocolate."}
+];
+const CAMPOS = ["nombre","categoria","descripcion","telefono","whatsapp","direccion","horario","instagram","facebook","tiktok","web","lat","lng","menu","miniatura"];
+
+/* =====================================================================
+   3) DATOS: Firebase o modo de prueba (en este navegador)
+   ===================================================================== */
+const usarFirebase = !!CONFIG.firebase.apiKey;
+let fb = null, usuario = null;
+
+async function iniciarFirebase(){
+  const v = "10.12.2";
+  const app = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+  const fs  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore.js`);
+  const au  = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-auth.js`);
+  const a = app.initializeApp(CONFIG.firebase);
+  fb = {db: fs.getFirestore(a), auth: au.getAuth(a), fs, au};
+  await new Promise(res => { let primera = true; au.onAuthStateChanged(fb.auth, u => { usuario = u; if (primera){ primera = false; res(); } else alCambiarSesion(); }); });
+}
+
+// --- almacenamiento local (modo de prueba) ---
+const K = {lug:"guia2_lugares", fot:"guia2_fotos", res:"guia2_resenas"};
+const lsL = k => { try { return JSON.parse(localStorage.getItem(k)) ?? null; } catch { return null; } };
+const lsG = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast("El navegador no tiene más espacio para fotos de prueba"); return false; } };
+const nuevoId = () => "l" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+
+const Datos = {
+  async aprobados(){
+    if (!usarFirebase) return (lsL(K.lug)||[]).filter(l => l.estado==="aprobado");
+    const {collection, query, where, getDocs} = fb.fs;
+    const s = await getDocs(query(collection(fb.db,"lugares"), where("estado","==","aprobado")));
+    return s.docs.map(d => ({id:d.id, ...d.data()}));
+  },
+  async porEstado(estado){
+    if (!usarFirebase) return (lsL(K.lug)||[]).filter(l => l.estado===estado);
+    const {collection, query, where, getDocs} = fb.fs;
+    const s = await getDocs(query(collection(fb.db,"lugares"), where("estado","==",estado)));
+    return s.docs.map(d => ({id:d.id, ...d.data()}));
+  },
+  async mios(uid){
+    if (!usarFirebase) return (lsL(K.lug)||[]).filter(l => l.ownerUid===uid);
+    const {collection, query, where, getDocs} = fb.fs;
+    const s = await getDocs(query(collection(fb.db,"lugares"), where("ownerUid","==",uid)));
+    return s.docs.map(d => ({id:d.id, ...d.data()}));
+  },
+  async uno(id){
+    if (!usarFirebase) return (lsL(K.lug)||[]).find(l => l.id===id) || null;
+    const {doc, getDoc} = fb.fs;
+    const s = await getDoc(doc(fb.db,"lugares",id));
+    return s.exists() ? {id:s.id, ...s.data()} : null;
+  },
+  async crear(d){
+    if (!usarFirebase){ const a = lsL(K.lug)||[], id = nuevoId(); a.push({...d, id, creado:Date.now()}); lsG(K.lug,a); return id; }
+    const {collection, addDoc, serverTimestamp} = fb.fs;
+    const r = await addDoc(collection(fb.db,"lugares"), {...d, creado: serverTimestamp()});
+    return r.id;
+  },
+  async actualizar(id, c){
+    if (!usarFirebase){ lsG(K.lug, (lsL(K.lug)||[]).map(l => l.id===id ? {...l, ...c} : l)); return; }
+    const {doc, updateDoc} = fb.fs;
+    await updateDoc(doc(fb.db,"lugares",id), c);
+  },
+  async borrar(id){
+    if (!usarFirebase){ lsG(K.lug, (lsL(K.lug)||[]).filter(l => l.id!==id)); const f = lsL(K.fot)||{}; delete f[id]; lsG(K.fot,f); return; }
+    const {doc, deleteDoc, collection, getDocs} = fb.fs;
+    const fs = await getDocs(collection(fb.db,"lugares",id,"fotos"));
+    for (const d of fs.docs) await deleteDoc(d.ref);
+    await deleteDoc(doc(fb.db,"lugares",id));
+  },
+  /* ---- Fotos: lugares/{id}/fotos/{fid}  (tipo: portada | galeria | menu) ---- */
+  async fotos(id){
+    if (!usarFirebase) return ((lsL(K.fot)||{})[id] || []);
+    const {collection, getDocs} = fb.fs;
+    const s = await getDocs(collection(fb.db,"lugares",id,"fotos"));
+    return s.docs.map(d => ({id:d.id, ...d.data()}));
+  },
+  async ponerFoto(id, fid, img, tipo){
+    if (!usarFirebase){
+      const f = lsL(K.fot)||{}, a = (f[id]||[]).filter(x => x.id!==fid);
+      a.push({id: fid || nuevoId(), img, tipo, fecha: Date.now()}); f[id] = a; lsG(K.fot,f); return;
+    }
+    const {doc, setDoc, addDoc, collection, serverTimestamp} = fb.fs;
+    const datos = {img, tipo, fecha: serverTimestamp()};
+    if (fid) await setDoc(doc(fb.db,"lugares",id,"fotos",fid), datos);
+    else await addDoc(collection(fb.db,"lugares",id,"fotos"), datos);
+  },
+  async borrarFoto(id, fid){
+    if (!usarFirebase){ const f = lsL(K.fot)||{}; f[id] = (f[id]||[]).filter(x => x.id!==fid); lsG(K.fot,f); return; }
+    const {doc, deleteDoc} = fb.fs;
+    await deleteDoc(doc(fb.db,"lugares",id,"fotos",fid));
+  },
+  /* ---- Reseñas: lugares/{id}/resenas/{uid} (una por persona) ---- */
+  async resenas(id){
+    if (!usarFirebase) return (lsL(K.res)||[]).filter(r => r.lugarId===id).sort((a,b)=>b.fecha-a.fecha);
+    const {collection, query, orderBy, limit, getDocs} = fb.fs;
+    const s = await getDocs(query(collection(fb.db,"lugares",id,"resenas"), orderBy("fecha","desc"), limit(50)));
+    return s.docs.map(d => ({id:d.id, ...d.data()}));
+  },
+  async guardarResena(id, uid, autor, puntos, comentario){
+    if (!usarFirebase){
+      const todas = lsL(K.res)||[], vieja = todas.find(r => r.lugarId===id && r.uid===uid);
+      const lug = lsL(K.lug)||[], l = lug.find(x => x.id===id);
+      l.resumen = sumarResumen(l.resumen, vieja?.puntos, puntos); lsG(K.lug,lug);
+      lsG(K.res, [...todas.filter(r => r!==vieja), {lugarId:id, uid, autor, puntos, comentario, fecha:Date.now()}]); return;
+    }
+    const {doc, runTransaction, serverTimestamp} = fb.fs;
+    const rL = doc(fb.db,"lugares",id), rR = doc(fb.db,"lugares",id,"resenas",uid);
+    await runTransaction(fb.db, async tx => {
+      const sl = await tx.get(rL), sr = await tx.get(rR);
+      tx.set(rR, {uid, autor, puntos, comentario, fecha: serverTimestamp()});
+      tx.update(rL, {resumen: sumarResumen(sl.data().resumen, sr.exists() ? sr.data().puntos : null, puntos)});
+    });
+  },
+  async borrarResena(id, uid){
+    if (!usarFirebase){
+      const todas = lsL(K.res)||[], v = todas.find(r => r.lugarId===id && r.uid===uid); if (!v) return;
+      const lug = lsL(K.lug)||[], l = lug.find(x => x.id===id); l.resumen = sumarResumen(l.resumen, v.puntos, null); lsG(K.lug,lug);
+      lsG(K.res, todas.filter(r => r!==v)); return;
+    }
+    const {doc, runTransaction} = fb.fs;
+    const rL = doc(fb.db,"lugares",id), rR = doc(fb.db,"lugares",id,"resenas",uid);
+    await runTransaction(fb.db, async tx => {
+      const sl = await tx.get(rL), sr = await tx.get(rR); if (!sr.exists()) return;
+      tx.update(rL, {resumen: sumarResumen(sl.data().resumen, sr.data().puntos, null)}); tx.delete(rR);
+    });
+  }
+};
+function sumarResumen(res, quitar, poner){
+  const r = {n: res?.n || 0, s: {...(res?.s || {})}};
+  if (quitar){ r.n -= 1; for (const k in quitar) r.s[k] = (r.s[k]||0) - quitar[k]; }
+  if (poner){  r.n += 1; for (const k in poner)  r.s[k] = (r.s[k]||0) + poner[k]; }
+  for (const k of Object.keys(ASPECTOS)) if (!r.s[k]) delete r.s[k];
+  return r;
+}
+
+/* ---- Sesión ---- */
+const DEMO_USER = {uid:"demo-usuario", displayName:"Tú (prueba)", email:""};
+const yo = () => usarFirebase ? usuario : DEMO_USER;
+const esAdmin = () => usarFirebase ? !!(usuario && CONFIG.admins.map(a=>a.toLowerCase()).includes((usuario.email||"").toLowerCase())) : modoAdminDemo();
+const modoAdminDemo = () => { try { return sessionStorage.getItem("demoAdmin")==="1"; } catch { return false; } };
+async function entrarGoogle(){
+  try { await fb.au.signInWithPopup(fb.auth, new fb.au.GoogleAuthProvider()); return true; }
+  catch(e){
+    if (["auth/popup-blocked","auth/operation-not-supported-in-this-environment"].includes(e.code)){ await fb.au.signInWithRedirect(fb.auth, new fb.au.GoogleAuthProvider()); }
+    else if (!["auth/popup-closed-by-user","auth/cancelled-popup-request"].includes(e.code)) toast("No se pudo entrar: "+e.code);
+    return false;
+  }
+}
+// Pide iniciar sesión con Google y devuelve true cuando hay usuario
+function pedirSesion(motivo){
+  if (yo()) return Promise.resolve(true);
+  return new Promise(res => {
+    abrirHoja(`<div class="hoja-cab"><h2>Entra con tu cuenta</h2><button class="cerrar" data-cerrar>✕</button></div>
+      <div class="aviso">${motivo}</div><button class="btn" id="btnEntrar">Entrar con Google</button>`);
+    $("#btnEntrar").onclick = async () => { const ok = await entrarGoogle(); if (ok){ cerrarHoja(); res(true); } };
+    hojaAlCerrar = () => res(false);
+  });
+}
+function alCambiarSesion(){
+  if ($("#negocio").classList.contains("ver")) pintarNegocio();
+  if ($("#admin").classList.contains("ver")) pintarAdmin();
+}
+
+/* =====================================================================
+   4) UTILIDADES
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const soloDig = s => String(s||"").replace(/\D/g,"");
+const tieneUbic = l => typeof l.lat === "number" && typeof l.lng === "number";
+const norm = s => String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+const fmt1 = v => v.toFixed(1).replace(".",",");
+const estrellasTxt = v => { const n = Math.round(v); return "★".repeat(n) + "☆".repeat(5-n); };
+const imgOk = s => typeof s === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(s);
+function toast(t, ms=2600){ const e=$("#toast"); e.textContent=t; e.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>e.style.display="none", ms); }
+function waNumero(n){ let d=soloDig(n); if (d.length===10) d="57"+d; return d; }
+function urlLugar(l){ return location.origin + location.pathname + "#" + l.id; }
+function linkRed(tipo, v){
+  v = String(v||"").trim(); if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  const h = v.replace(/^@/,"").replace(/^(www\.)?(instagram|facebook|tiktok)\.com\/@?/i,"");
+  return {instagram:`https://instagram.com/${h}`, facebook:`https://facebook.com/${h}`, tiktok:`https://www.tiktok.com/@${h}`, web:`https://${v}`}[tipo];
+}
+function promAspecto(l,k){ const r = l.resumen; return r && r.n>0 && r.s?.[k] ? r.s[k]/r.n : null; }
+function promGeneral(l){ const v = (ASP_CAT[l.categoria]||[]).map(k=>promAspecto(l,k)).filter(x=>x!=null); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+function icoHtml(l){ const c = CATS[l.categoria]||{}; return imgOk(l.miniatura) ? `<img src="${l.miniatura}" alt="">` : (c.i||"📍"); }
+function calHtml(l){ const g = promGeneral(l); return g==null ? "" : `<span class="cal"><span class="estrellas">★</span>${fmt1(g)} <small>(${l.resumen.n})</small></span>`; }
+
+/* Reduce una foto del celular para que pese poco */
+function comprimir(file, maxLado, calidad=0.72, cuadrada=false){
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      let sx=0, sy=0, sw=img.width, sh=img.height;
+      if (cuadrada){ const m = Math.min(sw,sh); sx=(sw-m)/2; sy=(sh-m)/2; sw=sh=m; }
+      const esc_ = Math.min(1, maxLado/Math.max(sw,sh)), w = Math.round(sw*esc_), h = Math.round(sh*esc_);
+      const cv = document.createElement("canvas"); cv.width=w; cv.height=h;
+      cv.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      let q = calidad, d = cv.toDataURL("image/jpeg", q);
+      while (d.length > (cuadrada ? 45000 : 650000) && q > 0.35){ q -= 0.08; d = cv.toDataURL("image/jpeg", q); }
+      res(d);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("imagen")); };
+    img.src = url;
+  });
+}
+function elegirFoto(){
+  return new Promise(res => {
+    const inp = $("#archivo"); inp.value = "";
+    inp.onchange = () => res(inp.files[0] || null);
+    inp.click();
+  });
+}
+
+/* Hoja inferior */
+let hojaAlCerrar = null;
+function abrirHoja(html){ $("#hoja").innerHTML = `<div class="asa"></div>` + html; $("#velo").classList.add("ver"); }
+function cerrarHoja(){ $("#velo").classList.remove("ver"); const f = hojaAlCerrar; hojaAlCerrar = null; if (f) f(); }
+$("#velo").addEventListener("click", e => { if (e.target.id==="velo" || e.target.closest("[data-cerrar]")) cerrarHoja(); });
+(() => { const h = $("#hoja"); let y0=null, dy=0;
+  h.addEventListener("touchstart", e => { y0 = h.scrollTop<=0 ? e.touches[0].clientY : null; dy=0; }, {passive:true});
+  h.addEventListener("touchmove", e => { if (y0==null) return; dy = e.touches[0].clientY-y0; if (dy>0) h.style.transform=`translateY(${dy}px)`; }, {passive:true});
+  h.addEventListener("touchend", () => { h.style.transform=""; if (y0!=null && dy>110) cerrarHoja(); y0=null; });
+})();
+
+/* Pantallas completas */
+let capa = 900;
+function abrirPantalla(id){ const p = $("#"+id); p.style.zIndex = ++capa; p.classList.add("ver"); p.scrollTop = 0; }
+function cerrarPantalla(id){
+  $("#"+id).classList.remove("ver");
+  if (["perfil","admin","negocio"].includes(id) && location.hash) history.replaceState(null,"",location.pathname);
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-volver]"); if (b) cerrarPantalla(b.dataset.volver); });
+
+/* Visor de fotos */
+$("#visor").addEventListener("click", () => $("#visor").classList.remove("ver"));
+function verFoto(src){ $("#visor img").src = src; $("#visor").classList.add("ver"); }
+
+/* =====================================================================
+   5) PANTALLA PRINCIPAL: mapa, lista, filtros
+   ===================================================================== */
+let lugares = [], filtroCat = null, texto = "", ordenar = "auto", miUbic = null, marcaYo = null;
+let mapa, grupo, marcadores = {};
+
+function distM(l){ if (!miUbic || !tieneUbic(l)) return null;
+  const R=6371000, r=x=>x*Math.PI/180, a=r(l.lat-miUbic.lat), b=r(l.lng-miUbic.lng);
+  const h=Math.sin(a/2)**2+Math.cos(r(miUbic.lat))*Math.cos(r(l.lat))*Math.sin(b/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+const fmtDist = m => m==null ? "" : m<1000 ? Math.round(m/10)*10+" m" : (m/1000).toFixed(m<10000?1:0).replace(".",",")+" km";
+
+$("#sos").insertAdjacentHTML("beforeend", SOS.map(s => `<a class="${s.sec?'sec':''}" href="tel:${soloDig(s.n)}">📞 ${esc(s.t)}</a>`).join(""));
+function pintarChips(){
+  $("#chips").innerHTML = `<button class="chip ${!filtroCat?'on':''}" data-cat="">Todo</button>` +
+    Object.entries(CATS).map(([k,v]) => `<button class="chip ${filtroCat===k?'on':''}" data-cat="${k}"><span class="dot" style="background:${v.c}"></span>${v.i} ${v.n}</button>`).join("");
+}
+$("#chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; filtroCat = b.dataset.cat || null; pintarChips(); pintar(true); });
+$("#q").addEventListener("input", e => { texto = norm(e.target.value); pintar(false); });
+
+function filtrados(){
+  return lugares.filter(l => (!filtroCat || l.categoria===filtroCat) &&
+    (!texto || norm([l.nombre,l.descripcion,l.direccion,CATS[l.categoria]?.n,(l.menu||[]).map(m=>m.n).join(" ")].join(" ")).includes(texto)))
+  .sort((a,b) => {
+    if (ordenar==="estrellas"){ const pa=promGeneral(a)??-1, pb=promGeneral(b)??-1; if (pa!==pb) return pb-pa; return (b.resumen?.n||0)-(a.resumen?.n||0); }
+    if (miUbic){ const da=distM(a), db=distM(b); if (da!=null||db!=null) return (da??1e12)-(db??1e12); }
+    return (a.categoria==="emergencia"?0:1)-(b.categoria==="emergencia"?0:1) || a.nombre.localeCompare(b.nombre,"es");
+  });
+}
+function iniciarMapa(){
+  if (!window.L){ $("#mapa").innerHTML = '<div class="vacio">No se pudo cargar el mapa. Revisa tu conexión.</div>'; return; }
+  mapa = L.map("mapa", {zoomControl:false}).setView(CONFIG.centro, CONFIG.zoom);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"}).addTo(mapa);
+  grupo = L.markerClusterGroup({showCoverageOnHover:false, maxClusterRadius:45});
+  mapa.addLayer(grupo);
+  mapa.on("click", () => $("#vistaPin").classList.remove("ver"));
+}
+const iconoPin = cat => L.divIcon({className:"", html:`<div class="pin" style="background:${CATS[cat]?.c||"#555"}"></div>`, iconSize:[24,24], iconAnchor:[12,12]});
+
+function pintar(ajustar){
+  const fl = filtrados();
+  $("#lista").innerHTML = `<div class="lista-cab">${fl.length} lugar${fl.length===1?"":"es"}${filtroCat?" en "+CATS[filtroCat].n:""}</div>
+    <div class="orden"><button data-o="auto" class="${ordenar==="auto"?"on":""}">${miUbic?"📍 Más cercanos":"🔤 Todos"}</button><button data-o="estrellas" class="${ordenar==="estrellas"?"on":""}">⭐ Mejor calificados</button></div>` +
+    (fl.length ? fl.map(l => `<div class="tarjeta" data-id="${esc(l.id)}">
+        <div class="ico" style="background:${CATS[l.categoria]?.c}1f">${icoHtml(l)}</div>
+        <div class="cuerpo"><h3>${esc(l.nombre)}</h3><p>${esc(l.direccion || l.descripcion || CATS[l.categoria]?.n || "")}</p>
+          ${calHtml(l)} ${l.oficial?'<span class="tag oficial">✓ Del municipio</span>':''} ${!tieneUbic(l)?'<span class="tag sinpin">Ubicación pendiente</span>':''}</div>
+        ${distM(l)!=null?`<span class="dist">${fmtDist(distM(l))}</span>`:""}
+      </div>`).join("")
+    : `<div class="vacio">No encontramos lugares con ese filtro.</div>`) +
+    `<div class="pie">¿Tienes un negocio? Créale su perfil gratis en <b>🏪 Mi negocio</b>.</div>`;
+  if (!grupo) return;
+  grupo.clearLayers(); marcadores = {};
+  fl.filter(tieneUbic).forEach(l => {
+    const m = L.marker([l.lat,l.lng], {icon: iconoPin(l.categoria), title: l.nombre});
+    m.on("click", ev => { L.DomEvent.stopPropagation(ev); mostrarVistaPin(l); });
+    marcadores[l.id] = m; grupo.addLayer(m);
+  });
+  if (ajustar && filtroCat && grupo.getLayers().length) mapa.fitBounds(grupo.getBounds().pad(0.2), {maxZoom:16});
+}
+function mostrarVistaPin(l){
+  const v = $("#vistaPin");
+  v.innerHTML = `<div class="ico" style="background:${CATS[l.categoria]?.c}1f">${icoHtml(l)}</div>
+    <div style="min-width:0"><h3>${esc(l.nombre)}</h3><p>${calHtml(l) || esc(CATS[l.categoria]?.n||"")} ${distM(l)!=null?"· "+fmtDist(distM(l)):""}</p></div><span class="ir">Ver ›</span>`;
+  v.onclick = () => abrirPerfil(l.id);
+  v.classList.add("ver");
+}
+$("#lista").addEventListener("click", e => {
+  const o = e.target.closest(".orden button"); if (o){ ordenar = o.dataset.o; pintar(false); return; }
+  const t = e.target.closest(".tarjeta"); if (t) abrirPerfil(t.dataset.id);
+});
+
+function mostrarTab(t){
+  if (t==="negocio"){ abrirNegocio(); return; }
+  if (t==="cerca"){ cercaDeMi(true); return; }
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab===t));
+  $("#lista").classList.toggle("ver", t==="lista");
+  if (t==="mapa" && mapa) setTimeout(()=>mapa.invalidateSize(), 50);
+}
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => mostrarTab(b.dataset.tab));
+
+function cercaDeMi(enLista){
+  if (!navigator.geolocation) return toast("Tu celular no permite ubicación");
+  toast("Buscando dónde estás…");
+  navigator.geolocation.getCurrentPosition(p => {
+    miUbic = {lat:p.coords.latitude, lng:p.coords.longitude};
+    if (mapa){
+      if (marcaYo) marcaYo.setLatLng([miUbic.lat,miUbic.lng]);
+      else { marcaYo = L.marker([miUbic.lat,miUbic.lng], {icon:L.divIcon({className:"",html:'<div class="yo"></div>',iconSize:[18,18],iconAnchor:[9,9]}), interactive:false}); mapa.addLayer(marcaYo); }
+      if (!enLista) mapa.setView([miUbic.lat,miUbic.lng], 17);
+    }
+    ordenar = "auto"; pintar(false);
+    if (enLista){ mostrarTab("lista"); document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab==="cerca")); $("#lista").scrollTop = 0; }
+    toast("Listo: lo más cercano primero");
+  }, () => toast("Activa la ubicación del celular para usar esta opción"), {enableHighAccuracy:true, timeout:12000, maximumAge:60000});
+}
+$("#btnCerca").onclick = () => cercaDeMi(false);
+$("#btnPueblo").onclick = () => mapa && mapa.setView(CONFIG.centro, CONFIG.zoom);
+
+/* =====================================================================
+   6) PERFIL DEL LUGAR
+   ===================================================================== */
+let perfilActual = null, pestPerfil = "info";
+
+async function abrirPerfil(id, pest="info"){
+  let l = lugares.find(x => x.id===id);
+  if (!l){ try { l = await Datos.uno(id); } catch { l = null; } }
+  if (!l){ toast("Este lugar no está disponible"); return; }
+  perfilActual = l; pestPerfil = pest;
+  const c = CATS[l.categoria]||{}, tel = soloDig(l.telefono), wa = l.whatsapp ? waNumero(l.whatsapp) : "";
+  const u = yo(), esDueno = u && l.ownerUid === u.uid, califica = (ASP_CAT[l.categoria]||[]).length > 0;
+  const redes = [["instagram","📸 Instagram"],["facebook","👍 Facebook"],["tiktok","🎵 TikTok"],["web","🌐 Web"]]
+    .filter(([k]) => l[k]).map(([k,t]) => `<a href="${esc(linkRed(k,l[k]))}" target="_blank" rel="noopener">${t}</a>`).join("");
+  const estadoTag = l.estado==="pendiente" ? `<div class="aviso">⏳ Este perfil está <b>en revisión</b>. Solo tú lo ves hasta que el administrador lo apruebe.</div>`
+                  : l.estado==="rechazado" ? `<div class="aviso">🚫 Este perfil no está publicado.</div>` : "";
+  $("#perfil").innerHTML = `
+    <div class="portada" id="pfPortada"><div class="emoji">${c.i||"📍"}</div>
+      <div class="btns"><button data-volver="perfil" aria-label="Volver">←</button><button id="pfCompartir" aria-label="Compartir">📤</button></div></div>
+    <div class="cab-perfil">
+      <div class="avatar" style="background:${c.c}1f">${icoHtml(l)}</div>
+      <h1>${esc(l.nombre)}</h1>
+      <div class="linea">${calHtml(l)}<span>${c.i||""} ${esc(c.n||"")}</span>${distM(l)!=null?`<span>🚶 ${fmtDist(distM(l))}</span>`:""}${l.oficial?'<span class="tag oficial">✓ Del municipio</span>':''}</div>
+      ${estadoTag}
+      <div class="acciones">
+        ${tel?`<a class="acc prim" href="tel:${tel}"><span>📞</span>Llamar</a>`:""}
+        ${wa?`<a class="acc wa" href="https://wa.me/${wa}?text=${encodeURIComponent("Hola, te encontré en la Guía de "+CONFIG.pueblo)}" target="_blank" rel="noopener"><span>💬</span>WhatsApp</a>`:""}
+        ${tieneUbic(l)?`<button class="acc" id="pfMapa"><span>🗺️</span>Ver en mapa</button>`:""}
+        ${califica?`<button class="acc" id="pfCalificar"><span>⭐</span>Calificar</button>`:`<button class="acc" id="pfCompartir2"><span>📤</span>Compartir</button>`}
+      </div>
+      ${redes?`<div class="redes">${redes}</div>`:""}
+      ${esDueno||esAdmin()?`<button class="btn-editar-perfil" id="pfEditar">✏️ ${esDueno?"Editar mi perfil":"Editar (administrador)"}</button>`:""}
+    </div>
+    <div class="pestanas-perfil">
+      <button data-p="info">Información</button><button data-p="menu">${l.categoria==="restaurante"?"Menú":"Productos"}</button>
+      <button data-p="fotos">Fotos</button>${califica?`<button data-p="resenas">Reseñas${l.resumen?.n?` (${l.resumen.n})`:""}</button>`:""}
+    </div>
+    <div id="pfCuerpo"></div>`;
+  abrirPantalla("perfil");
+  if (location.hash !== "#"+l.id) history.replaceState(null,"","#"+l.id);
+  const compartir = async () => {
+    const msg = `${c.i||"📍"} ${l.nombre} – ${CONFIG.pueblo}${promGeneral(l)!=null?` (★ ${fmt1(promGeneral(l))})`:""}`;
+    try { if (navigator.share){ await navigator.share({title:l.nombre, text:msg, url:urlLugar(l)}); return; } } catch(e){ if (e.name==="AbortError") return; }
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg+"\n"+urlLugar(l))}`, "_blank");
+  };
+  $("#pfCompartir").onclick = compartir; const c2 = $("#pfCompartir2"); if (c2) c2.onclick = compartir;
+  const bm = $("#pfMapa"); if (bm) bm.onclick = () => { cerrarPantalla("perfil"); mostrarTab("mapa"); mapa.setView([l.lat,l.lng], 18); mostrarVistaPin(l); };
+  const bc = $("#pfCalificar"); if (bc) bc.onclick = () => abrirCalificar(l);
+  const be = $("#pfEditar"); if (be) be.onclick = () => abrirEditor(l);
+  $("#perfil").querySelectorAll(".pestanas-perfil button").forEach(b => b.onclick = () => { pestPerfil = b.dataset.p; pintarPestanaPerfil(); });
+  // fotos (portada y galería) se cargan aparte
+  l._fotos = null;
+  pintarPestanaPerfil();
+  try { l._fotos = await Datos.fotos(l.id); } catch(e){ console.error(e); l._fotos = []; }
+  if (perfilActual !== l) return;
+  const port = l._fotos.find(f => f.tipo==="portada");
+  if (port && imgOk(port.img)) $("#pfPortada").insertAdjacentHTML("afterbegin", `<img src="${port.img}" alt="">`);
+  if (pestPerfil==="fotos" || pestPerfil==="menu") pintarPestanaPerfil();
+}
+
+function pintarPestanaPerfil(){
+  const l = perfilActual, z = $("#pfCuerpo"); if (!l || !z) return;
+  $("#perfil").querySelectorAll(".pestanas-perfil button").forEach(b => b.classList.toggle("on", b.dataset.p===pestPerfil));
+  const fotos = l._fotos;
+  const cargando = `<div class="vacio">Cargando…</div>`;
+  if (pestPerfil==="info"){
+    z.innerHTML = `
+      ${l.descripcion?`<div class="seccion"><h3>Sobre nosotros</h3><p class="desc">${esc(l.descripcion)}</p></div>`:""}
+      <div class="seccion"><h3>Datos</h3>
+        ${l.direccion?`<div class="dato"><span>📍</span><span>${esc(l.direccion)}</span></div>`:""}
+        ${l.horario?`<div class="dato"><span>🕒</span><span>${esc(l.horario)}</span></div>`:""}
+        ${l.telefono?`<div class="dato"><span>📞</span><span>${esc(l.telefono)}</span></div>`:""}
+        ${l.whatsapp?`<div class="dato"><span>💬</span><span>${esc(l.whatsapp)}</span></div>`:""}
+        ${!tieneUbic(l)?`<div class="dato"><span>🗺️</span><span>La ubicación en el mapa aún no está marcada.</span></div>`:""}
+      </div>
+      ${(ASP_CAT[l.categoria]||[]).length && l.resumen?.n ? `<div class="seccion"><h3>⭐ Lo que dice la gente</h3>${resumenHtml(l)}</div>`:""}`;
+  } else if (pestPerfil==="menu"){
+    const items = l.menu || [], fm = fotos ? fotos.filter(f => f.tipo==="menu") : null;
+    z.innerHTML = `<div class="seccion">
+      ${items.length ? items.map(m => `<div class="menu-item"><div><b>${esc(m.n)}</b>${m.d?`<p>${esc(m.d)}</p>`:""}</div>${m.p?`<span class="precio">${esc(m.p)}</span>`:""}</div>`).join("") : ""}
+      ${fm==null ? cargando : fm.length ? `<h3 style="margin-top:${items.length?14:0}px">Fotos de la carta</h3><div class="galeria">${fm.map(f=>`<img src="${f.img}" alt="" data-ver>`).join("")}</div>` : ""}
+      ${!items.length && fm && !fm.length ? `<div class="vacio">Este lugar aún no ha publicado su ${l.categoria==="restaurante"?"menú":"lista de productos"}.</div>`:""}
+    </div>`;
+  } else if (pestPerfil==="fotos"){
+    const fg = fotos ? fotos.filter(f => f.tipo==="galeria") : null;
+    z.innerHTML = `<div class="seccion">${fg==null ? cargando : fg.length ? `<div class="galeria">${fg.map(f=>`<img src="${f.img}" alt="" data-ver>`).join("")}</div>` : `<div class="vacio">Aún no hay fotos.</div>`}</div>`;
+  } else if (pestPerfil==="resenas"){
+    z.innerHTML = `<div class="seccion"><h3>⭐ Calificaciones de la gente</h3>
+      ${l.resumen?.n ? resumenHtml(l) : `<div class="aviso">Aún nadie ha calificado este lugar. ¡Sé el primero!</div>`}
+      <button class="btn" id="pfCal2">✍️ Calificar este lugar</button>
+      <div id="pfResenas" style="margin-top:8px">${cargando}</div></div>`;
+    $("#pfCal2").onclick = () => abrirCalificar(l);
+    cargarResenas(l);
+  }
+  z.querySelectorAll("img[data-ver]").forEach(i => i.onclick = () => verFoto(i.src));
+}
+function resumenHtml(l){
+  const asp = ASP_CAT[l.categoria]||[], g = promGeneral(l), n = l.resumen.n;
+  return `<div class="resumen"><div class="grande">${fmt1(g)}<small><span class="estrellas">${estrellasTxt(g)}</span><br>${n} reseña${n===1?"":"s"}</small></div>
+    <div class="barras">${asp.map(k => { const v = promAspecto(l,k); return v==null ? "" :
+      `<div class="barra"><span>${ASPECTOS[k].i}</span><div class="fondo"><div class="lleno" style="width:${v/5*100}%"></div></div><span>${fmt1(v)}</span></div>`; }).join("")}</div></div>
+    <div class="leyenda">${asp.map(k=>ASPECTOS[k].i+" "+ASPECTOS[k].n).join(" · ")}</div>`;
+}
+async function cargarResenas(l){
+  let rs = []; try { rs = await Datos.resenas(l.id); } catch(e){ console.error(e); }
+  const z = $("#pfResenas"); if (!z || perfilActual!==l) return;
+  const asp = ASP_CAT[l.categoria]||[];
+  z.innerHTML = rs.map(r => {
+    const vals = asp.map(k=>r.puntos?.[k]).filter(Boolean), pr = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+    const f = r.fecha?.seconds ? new Date(r.fecha.seconds*1000) : new Date(r.fecha||Date.now());
+    return `<div class="resena"><div class="quien"><span>${esc(r.autor||"Visitante")}</span><small>${f.toLocaleDateString("es-CO",{day:"numeric",month:"short",year:"numeric"})}</small></div>
+      <div class="estrellas">${estrellasTxt(pr)}</div>${r.comentario?`<p>${esc(r.comentario)}</p>`:""}
+      <div class="mini-asp">${asp.filter(k=>r.puntos?.[k]).map(k=>`<span>${ASPECTOS[k].i} ${r.puntos[k]}</span>`).join("")}</div>
+      ${esAdmin()?`<button class="b-del" data-uid="${esc(r.uid||r.id)}">Borrar reseña</button>`:""}</div>`;
+  }).join("");
+  z.onclick = async e => {
+    const b = e.target.closest(".b-del"); if (!b) return;
+    if (b.dataset.seguro!=="1"){ b.dataset.seguro="1"; b.textContent="¿Seguro? Toca otra vez"; return; }
+    try { await Datos.borrarResena(l.id, b.dataset.uid); toast("Reseña borrada"); await recargar(); abrirPerfil(l.id, "resenas"); }
+    catch(err){ console.error(err); toast("Error: "+(err.code||err.message)); }
+  };
+}
+
+/* Calificar */
+async function abrirCalificar(l){
+  if (!(await pedirSesion("Para que las calificaciones sean reales, cada persona entra con su cuenta de Google y deja <b>una reseña por lugar</b>. Solo se muestra el nombre que escribas."))) return;
+  const u = yo();
+  if (l.ownerUid && l.ownerUid === u.uid) return toast("No puedes calificar tu propio negocio 😉");
+  const asp = ASP_CAT[l.categoria]||[];
+  let previa = null; try { previa = (await Datos.resenas(l.id)).find(r => (r.uid||r.id)===u.uid) || null; } catch {}
+  const puntos = {...(previa?.puntos||{})};
+  abrirHoja(`<div class="hoja-cab"><h2>${previa?"Editar tu reseña":"Calificar"} · ${esc(l.nombre)}</h2><button class="cerrar" data-cerrar>✕</button></div>
+    <div class="ayuda">Toca las estrellas: 1 = muy malo, 5 = excelente.</div>
+    ${asp.map(k => `<div class="calificar-fila" data-k="${k}"><div class="nom"><span>${ASPECTOS[k].i} ${ASPECTOS[k].n}</span><small class="txt">${puntos[k]?NIVEL[puntos[k]]:"Sin calificar"}</small></div>
+      <div class="pick">${[1,2,3,4,5].map(v=>`<button type="button" data-v="${v}" class="${(puntos[k]||0)>=v?"on":""}" aria-label="${v} estrellas">★</button>`).join("")}</div></div>`).join("")}
+    <form class="form" id="fRes" novalidate>
+      <label>Cuéntanos tu experiencia</label>
+      <textarea name="comentario" maxlength="500" placeholder="¿Qué pediste? ¿Cómo te atendieron? ¿Lo recomiendas?">${esc(previa?.comentario)}</textarea>
+      <label>Tu nombre (se muestra en la reseña)</label>
+      <input name="autor" maxlength="40" value="${esc(previa?.autor || (usarFirebase ? (u.displayName||"").split(" ")[0] : ""))}" placeholder="Ej: Carolina">
+      <button class="btn" type="submit">${previa?"Actualizar reseña":"Publicar reseña"}</button>
+    </form>`);
+  $("#hoja").querySelectorAll(".calificar-fila").forEach(fila => fila.addEventListener("click", e => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    const k = fila.dataset.k, v = +b.dataset.v; puntos[k] = v;
+    fila.querySelectorAll("button").forEach(x => x.classList.toggle("on", +x.dataset.v <= v));
+    fila.querySelector(".txt").textContent = NIVEL[v];
+  }));
+  $("#fRes").onsubmit = async e => {
+    e.preventDefault();
+    const faltan = asp.filter(k => !puntos[k]);
+    if (faltan.length) return toast("Califica también: " + faltan.map(k=>ASPECTOS[k].n).join(", "));
+    const f = new FormData(e.target), limpio = {}; asp.forEach(k => limpio[k] = puntos[k]);
+    const btn = e.target.querySelector("button[type=submit]"); btn.disabled = true;
+    try {
+      await Datos.guardarResena(l.id, u.uid, (String(f.get("autor")||"").trim()||"Visitante").slice(0,40), limpio, String(f.get("comentario")||"").trim().slice(0,500));
+      cerrarHoja(); toast("¡Gracias por tu reseña! ⭐"); await recargar(); abrirPerfil(l.id, "resenas");
+    } catch(err){ console.error(err); toast("No se pudo guardar: "+(err.code||err.message)); btn.disabled = false; }
+  };
+}
+
+/* =====================================================================
+   7) MI NEGOCIO (el dueño ve y edita sus lugares)
+   ===================================================================== */
+async function abrirNegocio(){ abrirPantalla("negocio"); pintarNegocio(); }
+async function pintarNegocio(){
+  const P = $("#negocio"), u = yo();
+  const cab = `<div class="barra-sup"><button class="atras" data-volver="negocio">←</button><h2>🏪 Mi negocio</h2></div>`;
+  if (!u){
+    P.innerHTML = cab + `<div class="contenido">
+      <div class="bloque"><h3>Crea gratis el perfil de tu negocio</h3>
+        <p class="ayuda">Pon tu portada, logo, fotos, menú, horario y redes sociales. La gente te encuentra en el mapa, te escribe por WhatsApp y te califica.</p>
+        <div class="aviso">Entra con tu cuenta de Google: así solo tú puedes editar tu perfil.</div>
+        <button class="btn" id="ngEntrar">Entrar con Google</button></div></div>`;
+    $("#ngEntrar").onclick = async () => { if (await entrarGoogle()) pintarNegocio(); };
+    return;
+  }
+  P.innerHTML = cab + `<div class="contenido"><div id="ngLista"><div class="vacio">Cargando…</div></div>
+    <button class="btn coral" id="ngNuevo">＋ Crear el perfil de un lugar</button>
+    ${usarFirebase?`<button class="btn sec" id="ngSalir">Cerrar sesión (${esc(u.email)})</button>`:""}
+    <p class="ayuda" style="text-align:center;margin-top:18px"><a href="#admin">Panel del administrador</a></p></div>`;
+  $("#ngNuevo").onclick = () => abrirEditor(null);
+  const s = $("#ngSalir"); if (s) s.onclick = async () => { await fb.au.signOut(fb.auth); pintarNegocio(); };
+  let mios = []; try { mios = await Datos.mios(u.uid); } catch(e){ console.error(e); }
+  $("#ngLista").innerHTML = mios.length ? mios.map(l => `<div class="item" data-id="${esc(l.id)}">
+      <div class="top"><div class="ico" style="background:${CATS[l.categoria]?.c}1f">${icoHtml(l)}</div>
+      <div><h3>${esc(l.nombre)}</h3>${{pendiente:'<span class="tag pend">⏳ En revisión</span>',aprobado:'<span class="tag ok">✅ Publicado</span>',rechazado:'<span class="tag no">🚫 No publicado</span>'}[l.estado]||""} ${calHtml(l)}</div></div>
+      <div class="botones"><button data-a="ver">👁️ Ver perfil</button><button data-a="editar">✏️ Editar</button></div></div>`).join("")
+    : `<div class="vacio">Todavía no has creado ningún perfil.</div>`;
+  $("#ngLista").onclick = e => {
+    const b = e.target.closest("button[data-a]"); if (!b) return;
+    const l = mios.find(x => x.id === b.closest(".item").dataset.id);
+    if (b.dataset.a==="ver") abrirPerfil(l.id); else abrirEditor(l);
+  };
+}
+
+/* =====================================================================
+   8) EDITOR DE PERFIL (crear o editar)
+   ===================================================================== */
+let ED = null; // estado del editor
+async function abrirEditor(lugar){
+  if (!(await pedirSesion("Entra con tu cuenta de Google para crear el perfil de tu negocio. Así solo tú podrás editarlo."))) return;
+  const v = lugar || {}, nuevo = !lugar;
+  ED = {lugar, ubic: tieneUbic(v) ? {lat:v.lat, lng:v.lng} : null, menu: [...(v.menu||[])], miniatura: v.miniatura || null,
+        portada: null, portadaCambio: false, fotos: [], borrar: []};
+  if (!nuevo){ try { const fs = await Datos.fotos(lugar.id); ED.portada = fs.find(f=>f.tipo==="portada")?.img || null; ED.fotos = fs.filter(f=>f.tipo!=="portada").map(f=>({...f, guardada:true})); } catch {} }
+  const catOpts = Object.entries(CATS).filter(([k]) => esAdmin() || k!=="emergencia").map(([k,c]) => `<option value="${k}" ${v.categoria===k?"selected":""}>${c.i} ${c.n}</option>`).join("");
+  $("#editor").innerHTML = `<div class="barra-sup"><button class="atras" data-volver="editor">←</button><h2>${nuevo?"Crear perfil":"Editar perfil"}</h2></div>
+  <form class="contenido form" id="fEd" novalidate>
+    ${nuevo?`<div class="aviso">Es gratis. Antes de publicarlo, el administrador revisa que el lugar sea real (puede llamar al teléfono que dejes).</div>`:""}
+    <div class="bloque"><h3>📷 Fotos principales</h3>
+      <label>Foto de portada</label><div class="subir-portada" id="edPortada">＋ Toca para subir la portada</div>
+      <label>Logo o foto de perfil</label><div class="subir-logo" id="edLogo">＋ Logo</div>
+    </div>
+    <div class="bloque"><h3>📝 Información</h3>
+      <label>Nombre del lugar *</label><input name="nombre" maxlength="90" value="${esc(v.nombre)}">
+      <label>Categoría *</label><select name="categoria">${catOpts}</select>
+      <label>Descripción</label><textarea name="descripcion" maxlength="800" placeholder="Cuéntale a la gente qué ofreces, tu especialidad, tu historia…">${esc(v.descripcion)}</textarea>
+      <div class="fila2"><div><label>Teléfono *</label><input name="telefono" inputmode="tel" maxlength="20" value="${esc(v.telefono)}"></div>
+      <div><label>WhatsApp</label><input name="whatsapp" inputmode="tel" maxlength="20" value="${esc(v.whatsapp)}"></div></div>
+      <label>Dirección</label><input name="direccion" maxlength="150" placeholder="Ej: Calle 10 # 9-20, Parque principal" value="${esc(v.direccion)}">
+      <label>Horario</label><input name="horario" maxlength="120" placeholder="Ej: Lunes a sábado 7am – 9pm" value="${esc(v.horario)}">
+    </div>
+    <div class="bloque"><h3>📱 Redes sociales</h3><p class="ayuda">Escribe tu usuario (ej: @minegocio) o pega el link.</p>
+      <label>Instagram</label><input name="instagram" maxlength="150" value="${esc(v.instagram)}" placeholder="@minegocio">
+      <label>Facebook</label><input name="facebook" maxlength="150" value="${esc(v.facebook)}" placeholder="facebook.com/minegocio">
+      <label>TikTok</label><input name="tiktok" maxlength="150" value="${esc(v.tiktok)}" placeholder="@minegocio">
+      <label>Página web</label><input name="web" maxlength="200" value="${esc(v.web)}" inputmode="url">
+    </div>
+    <div class="bloque"><h3>🍽️ Menú o productos</h3><p class="ayuda">Agrega tus platos o productos con su precio, o sube fotos de tu carta.</p>
+      <div id="edMenu"></div>
+      <div class="agregar-menu"><input id="mN" maxlength="80" placeholder="Nombre (ej: Bandeja paisa)"><input id="mP" maxlength="20" placeholder="Precio" inputmode="numeric"><input id="mD" maxlength="150" placeholder="Descripción corta (opcional)"></div>
+      <button type="button" class="btn sec" id="mAdd">＋ Agregar al menú</button>
+      <label>Fotos de la carta</label><div class="fotos-ed" id="edFotosMenu"></div>
+    </div>
+    <div class="bloque"><h3>🖼️ Galería de fotos</h3><p class="ayuda">Muestra tu lugar, tus platos, tu ambiente. Hasta 12 fotos.</p>
+      <div class="fotos-ed" id="edGaleria"></div></div>
+    <div class="bloque"><h3>📍 Ubicación en el mapa *</h3><p class="ayuda">Mueve el mapa y toca donde queda tu lugar. Puedes arrastrar el punto para ajustarlo.</p>
+      <div class="mini-mapa" id="edMapa"></div>
+      <button type="button" class="btn sec" id="edMiUbic">📍 Estoy en el lugar: usar mi ubicación</button></div>
+    <input class="trampa" name="sitio_web2" tabindex="-1" autocomplete="off">
+    <button class="btn" type="submit">${nuevo?"Enviar para aprobación":"Guardar cambios"}</button>
+    ${!nuevo && esAdmin() ? `<button type="button" class="btn sec" id="edBorrar" style="color:var(--rojo)">Borrar este lugar</button>`:""}
+  </form>`;
+  abrirPantalla("editor");
+  pintarFotosEditor(); pintarMenuEditor();
+  // Portada y logo
+  $("#edPortada").onclick = async () => { const f = await elegirFoto(); if (!f) return; toast("Preparando foto…"); try { ED.portada = await comprimir(f, 1280); ED.portadaCambio = true; if (!ED.miniatura) ED.miniatura = await comprimir(f, 240, .72, true); pintarFotosEditor(); } catch { toast("No se pudo leer esa foto"); } };
+  $("#edLogo").onclick = async () => { const f = await elegirFoto(); if (!f) return; try { ED.miniatura = await comprimir(f, 240, .75, true); pintarFotosEditor(); } catch { toast("No se pudo leer esa foto"); } };
+  // Menú
+  $("#mAdd").onclick = () => {
+    const n = $("#mN").value.trim(), p = $("#mP").value.trim(), d = $("#mD").value.trim();
+    if (!n) return toast("Escribe el nombre del plato o producto");
+    if (ED.menu.length >= 80) return toast("Máximo 80 productos");
+    ED.menu.push({n, p: p && /^\d[\d.,]*$/.test(p) ? "$" + p : p, d}); $("#mN").value = $("#mP").value = $("#mD").value = ""; pintarMenuEditor();
+  };
+  // Mini mapa
+  setTimeout(() => {
+    if (!window.L) return;
+    const mm = L.map("edMapa").setView(ED.ubic ? [ED.ubic.lat,ED.ubic.lng] : CONFIG.centro, ED.ubic ? 17 : CONFIG.zoom);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"}).addTo(mm);
+    let pin = null;
+    const poner = ll => { ED.ubic = {lat:+ll.lat.toFixed(6), lng:+ll.lng.toFixed(6)}; if (pin) pin.setLatLng(ll); else pin = L.marker(ll, {draggable:true}).addTo(mm).on("dragend", e => poner(e.target.getLatLng())); };
+    if (ED.ubic) poner(L.latLng(ED.ubic.lat, ED.ubic.lng));
+    mm.on("click", e => poner(e.latlng));
+    $("#edMiUbic").onclick = () => {
+      if (!navigator.geolocation) return toast("Tu celular no permite ubicación");
+      toast("Buscando tu ubicación…");
+      navigator.geolocation.getCurrentPosition(p => { const ll = L.latLng(p.coords.latitude,p.coords.longitude); poner(ll); mm.setView(ll,18); toast("Ubicación puesta ✓"); },
+        () => toast("No se pudo obtener la ubicación. Toca el mapa."), {enableHighAccuracy:true, timeout:12000});
+    };
+  }, 80);
+  const bb = $("#edBorrar"); if (bb) bb.onclick = async () => {
+    if (bb.dataset.seguro!=="1"){ bb.dataset.seguro="1"; bb.textContent="¿Seguro? Se borra todo. Toca otra vez"; return; }
+    try { await Datos.borrar(lugar.id); toast("Lugar borrado"); cerrarPantalla("editor"); cerrarPantalla("perfil"); await recargar(); if ($("#admin").classList.contains("ver")) pintarAdmin(); } catch(e){ toast("Error: "+(e.code||e.message)); }
+  };
+  $("#fEd").onsubmit = guardarEditor;
+}
+function pintarFotosEditor(){
+  $("#edPortada").innerHTML = ED.portada ? `<img src="${ED.portada}" alt="">` : "＋ Toca para subir la portada";
+  $("#edLogo").innerHTML = ED.miniatura ? `<img src="${ED.miniatura}" alt="">` : "＋ Logo";
+  const caja = (tipo, max) => {
+    const fs = ED.fotos.filter(f => f.tipo===tipo);
+    return fs.map(f => `<div class="f"><img src="${f.img}" alt=""><button type="button" data-q="${esc(f.id||f.tmp)}">✕</button></div>`).join("") +
+      (fs.length < max ? `<button type="button" class="add" data-add="${tipo}">＋</button>` : "");
+  };
+  $("#edGaleria").innerHTML = caja("galeria", 12);
+  $("#edFotosMenu").innerHTML = caja("menu", 6);
+  ["#edGaleria","#edFotosMenu"].forEach(s => $(s).onclick = async e => {
+    const q = e.target.closest("[data-q]"), a = e.target.closest("[data-add]");
+    if (q){ const f = ED.fotos.find(x => (x.id||x.tmp)===q.dataset.q); if (f?.guardada) ED.borrar.push(f.id); ED.fotos = ED.fotos.filter(x => x!==f); pintarFotosEditor(); }
+    if (a){ const file = await elegirFoto(); if (!file) return; toast("Preparando foto…");
+      try { ED.fotos.push({tmp: nuevoId(), tipo: a.dataset.add, img: await comprimir(file, 1100)}); pintarFotosEditor(); } catch { toast("No se pudo leer esa foto"); } }
+  });
+}
+function pintarMenuEditor(){
+  $("#edMenu").innerHTML = ED.menu.map((m,i) => `<div class="menu-ed"><div><b>${esc(m.n)}</b> ${m.p?`<span style="color:var(--prim);font-weight:900">${esc(m.p)}</span>`:""}${m.d?`<div class="ayuda" style="margin:0">${esc(m.d)}</div>`:""}</div><button type="button" data-i="${i}">✕</button></div>`).join("");
+  $("#edMenu").onclick = e => { const b = e.target.closest("button[data-i]"); if (b){ ED.menu.splice(+b.dataset.i,1); pintarMenuEditor(); } };
+}
+async function guardarEditor(e){
+  e.preventDefault();
+  const f = new FormData(e.target); if (f.get("sitio_web2")) return;
+  const d = {};
+  ["nombre","categoria","descripcion","telefono","whatsapp","direccion","horario","instagram","facebook","tiktok","web"].forEach(k => d[k] = String(f.get(k)||"").trim());
+  if (d.nombre.length < 2) return toast("Escribe el nombre del lugar");
+  if (soloDig(d.telefono).length < 3) return toast("Escribe un teléfono válido");
+  if (!ED.ubic && !ED.lugar) return toast("Marca la ubicación en el mapa");
+  if (ED.ubic){ d.lat = ED.ubic.lat; d.lng = ED.ubic.lng; }
+  d.menu = ED.menu;
+  if (ED.miniatura) d.miniatura = ED.miniatura;
+  const btn = e.target.querySelector("button[type=submit]"); btn.disabled = true; btn.textContent = "Guardando…";
+  try {
+    let id;
+    if (ED.lugar){ id = ED.lugar.id; await Datos.actualizar(id, d); }
+    else id = await Datos.crear({...d, estado:"pendiente", oficial:false, ownerUid: yo().uid});
+    if (ED.portadaCambio && ED.portada) await Datos.ponerFoto(id, "portada", ED.portada, "portada");
+    for (const fid of ED.borrar) await Datos.borrarFoto(id, fid);
+    for (const fo of ED.fotos.filter(x => !x.guardada)) await Datos.ponerFoto(id, null, fo.img, fo.tipo);
+    cerrarPantalla("editor"); await recargar();
+    if (!ED.lugar){
+      abrirHoja(`<div class="hoja-cab"><h2>¡Perfil enviado! 🎉</h2><button class="cerrar" data-cerrar>✕</button></div>
+        <div class="aviso ok">Tu lugar <b>${esc(d.nombre)}</b> quedó en revisión. Aparecerá en la guía apenas el administrador confirme que es real. Mientras tanto puedes seguir completándolo desde <b>Mi negocio</b>.</div>
+        <button class="btn" data-cerrar>Listo</button>`);
+    } else toast("Cambios guardados ✓");
+    if ($("#negocio").classList.contains("ver")) pintarNegocio();
+    if ($("#admin").classList.contains("ver")) pintarAdmin();
+    if ($("#perfil").classList.contains("ver")) abrirPerfil(id);
+  } catch(err){ console.error(err); toast("No se pudo guardar: "+(err.code||err.message)); btn.disabled = false; btn.textContent = ED.lugar ? "Guardar cambios" : "Enviar para aprobación"; }
+}
+
+/* =====================================================================
+   9) PANEL DE ADMINISTRACIÓN  (link terminado en #admin)
+   ===================================================================== */
+let pestAdmin = "pendiente";
+async function pintarAdmin(){
+  const A = $("#admin");
+  const cab = `<div class="barra-sup"><button class="atras" data-volver="admin">←</button><h2>⚙️ Administración</h2></div>`;
+  if (!esAdmin()){
+    A.innerHTML = cab + `<div class="contenido">${usuario?`<div class="aviso">La cuenta ${esc(usuario.email)} no es administradora.</div>`:""}
+      <p>Entra con la cuenta de Google del administrador para aprobar lugares.</p><button class="btn" id="adEntrar">Entrar con Google</button>
+      ${usuario?`<button class="btn sec" id="adSalir">Cerrar sesión</button>`:""}</div>`;
+    $("#adEntrar").onclick = entrarGoogle; const s = $("#adSalir"); if (s) s.onclick = () => fb.au.signOut(fb.auth);
+    return;
+  }
+  A.innerHTML = cab + `<div class="contenido">
+    <div class="pest-admin">${[["pendiente","⏳ Por aprobar"],["aprobado","✅ Publicados"],["rechazado","🚫 Rechazados"]].map(([k,t])=>`<button data-p="${k}" class="${pestAdmin===k?"on":""}">${t}</button>`).join("")}</div>
+    <div id="adLista"><div class="vacio">Cargando…</div></div>
+    <div class="bloque"><h3>Herramientas</h3><p class="ayuda">Carga los lugares base (policía, hospital, alcaldía, sitios turísticos). Luego edita cada uno para confirmar datos y ponerle su punto en el mapa.</p>
+      <button class="btn sec" id="adImportar">Importar lugares base</button></div></div>`;
+  A.querySelectorAll(".pest-admin button").forEach(b => b.onclick = () => { pestAdmin = b.dataset.p; pintarAdmin(); });
+  $("#adImportar").onclick = importarBase;
+  let items = [];
+  try { items = await Datos.porEstado(pestAdmin); } catch(e){ $("#adLista").innerHTML = `<div class="aviso">Error leyendo datos (${esc(e.code||e.message)}). Revisa las reglas y el correo de administrador.</div>`; return; }
+  items.sort((a,b) => (b.creado?.seconds||b.creado||0) - (a.creado?.seconds||a.creado||0));
+  $("#adLista").innerHTML = items.length ? items.map(l => `<div class="item" data-id="${esc(l.id)}">
+      <div class="top"><div class="ico" style="background:${CATS[l.categoria]?.c}1f">${icoHtml(l)}</div><div><h3>${esc(l.nombre)}</h3><span class="tag">${esc(CATS[l.categoria]?.n)}</span> ${calHtml(l)}</div></div>
+      <div class="meta">📞 ${esc(l.telefono||"—")}${l.whatsapp?" · 💬 "+esc(l.whatsapp):""}${l.direccion?"<br>📍 "+esc(l.direccion):""}${!tieneUbic(l)?"<br><b>Sin punto en el mapa</b>":""}</div>
+      <div class="botones">
+        ${l.telefono?`<a href="tel:${soloDig(l.telefono)}">📞 Llamar</a>`:""}
+        <button data-a="ver">👁️ Ver perfil</button>
+        ${pestAdmin!=="aprobado"?`<button class="b-ok" data-a="aprobar">✓ Aprobar</button>`:""}
+        <button data-a="editar">✏️ Editar</button>
+        ${pestAdmin==="pendiente"?`<button class="b-no" data-a="rechazar">Rechazar</button>`:""}
+        ${pestAdmin==="aprobado"?`<button class="b-no" data-a="rechazar">Ocultar</button>`:""}
+      </div></div>`).join("")
+    : `<div class="vacio">${pestAdmin==="pendiente"?"No hay solicitudes nuevas 🎉":"Nada por aquí."}</div>`;
+  $("#adLista").onclick = async e => {
+    const b = e.target.closest("button[data-a]"); if (!b) return;
+    const l = items.find(x => x.id === b.closest(".item").dataset.id), a = b.dataset.a;
+    try {
+      if (a==="ver") return abrirPerfil(l.id);
+      if (a==="editar") return abrirEditor(l);
+      await Datos.actualizar(l.id, {estado: a==="aprobar" ? "aprobado" : "rechazado"});
+      toast(a==="aprobar" ? "Publicado ✓" : "Quitado de la guía"); await recargar(); pintarAdmin();
+    } catch(err){ console.error(err); toast("Error: "+(err.code||err.message)); }
+  };
+}
+async function importarBase(){
+  const b = $("#adImportar"); b.disabled = true; b.textContent = "Importando…";
+  try {
+    const ya = new Set([...(await Datos.porEstado("aprobado")), ...(await Datos.porEstado("pendiente"))].map(l => norm(l.nombre)));
+    let n = 0;
+    for (const l of BASE){ if (ya.has(norm(l.nombre))) continue; await Datos.crear({telefono:"", ...l, estado:"aprobado", oficial:true}); n++; }
+    toast(n ? `${n} lugares importados ✓` : "Ya estaban importados"); await recargar(); pestAdmin = "aprobado"; pintarAdmin();
+  } catch(e){ console.error(e); toast("Error importando: "+(e.code||e.message)); b.disabled = false; }
+}
+
+/* =====================================================================
+   10) ARRANQUE
+   ===================================================================== */
+async function recargar(){
+  try { lugares = await Datos.aprobados(); } catch(e){ console.error(e); toast("No se pudieron cargar los lugares"); lugares = []; }
+  pintar(false);
+}
+function ruta(){
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h==="admin"){ if (!usarFirebase) try { sessionStorage.setItem("demoAdmin","1"); } catch {} abrirPantalla("admin"); pintarAdmin(); return; }
+  if (h) abrirPerfil(h);
+}
+window.addEventListener("hashchange", ruta);
+
+(async function(){
+  document.title = "Guía de " + CONFIG.pueblo;
+  $("#nombrePueblo").textContent = CONFIG.pueblo;
+  if (CONFIG.logo){ // logo del pueblo arriba, grande
+    const img = new Image(); img.className = "logo-pueblo"; img.alt = CONFIG.pueblo;
+    img.onload = () => { const t = document.querySelector(".titulo"); t.classList.add("con-logo"); t.querySelector(".logo").replaceWith(img); };
+    img.src = CONFIG.logo;
+  }
+  pintarChips(); iniciarMapa(); pintar(false);
+  if (usarFirebase){ try { await iniciarFirebase(); } catch(e){ console.error(e); toast("Error conectando con la base de datos"); } }
+  else {
+    $("#demo").hidden = false;
+    if (!lsL(K.lug)) lsG(K.lug, [...(window.GUIA_EJEMPLOS||[]), ...BASE.map(l => ({...l, estado:"aprobado", oficial:true}))].map((l,i) => ({telefono:"", id:"base"+i, creado:Date.now(), ...l})));
+    if (!lsL(K.res)) lsG(K.res, window.GUIA_EJEMPLOS_RESENAS || []);
+  }
+  await recargar(); ruta();
+})();
+</script>
+</body>
+</html>
